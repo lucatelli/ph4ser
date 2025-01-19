@@ -4,7 +4,8 @@ This is intended to be used as a first trial of self-calibration.
 """
 
 
-visibility_info = {'path':"/media/sagauga/galnet/LIRGI_Sample/VLA-Archive/A_config/23A-324/C_band/MCG+12-02-001/autoselfcal/",
+visibility_info = {'path':"/media/sagauga/galnet/LIRGI_Sample/VLA-Archive/A_config/23A-324/C_band"
+                          "/MCG+12-02-001/autoselfcal/",
                    'field':'MCG12-02-001',
                    'vis_name':'MCG12-02-001.calibrated.avg',
                    'savename':'_A_C_sf'
@@ -80,10 +81,10 @@ taper_sizes_JVLA = {'L':'2.0arcsec',
                     'C':'0.6arcsec',
                     'X':'0.4arcsec',
                     'Ku':'0.2arcsec', #Ku-A
-              #       'Ku':'1.0arcsec', #Ku-C
+                    # 'Ku':'1.0arcsec', #Ku-C
                     'K':'0.1arcsec',
-              #       'Ka':'1.0arcsec' #Ka-C
-                    'Ka':'0.1arcsec'
+                    # 'Ka':'1.0arcsec' #Ka-C
+                    'Ka':'0.1arcsec' #Ka-A
                     }
 
 
@@ -95,17 +96,14 @@ if instrument == 'EVLA':
     taper_size = taper_sizes_JVLA[receiver]
 
 init_parameters = {'fov_image': {'imsize': 1024*8,
-                                'cell': '0.4arcsec',
+                                'cell': '0.25arcsec',
                                 'basename': 'FOV_phasecal_image',
                                 'FIELD_SHIFT': None,
-                            #     'FIELD_SHIFT':"'14:57:43.145 +24.35.10.257'", #VV340a >1Jy outlier
-                            #     'FIELD_SHIFT':"'13:37:29.220001 +48.18.20.59999'", #NGC5256
                                 'niter': 1000,
                                 'robust': 0.5},
-                  'test_image': {'imsize': int(1024*2),
-                                 'imsizey': int(1024*2),
+                  'test_image': {'imsize': int(1024*3),
+                                 'imsizey': int(1024*3),
                                  'FIELD_SHIFT': None,
-                            #      'FIELD_SHIFT':"'13:37:29.220001 +48.18.20.59999'", #NGC5256
                                  'cell': cell_size,
                                  'prefix': 'test_image',
                                  'uvtaper': [''],
@@ -140,20 +138,6 @@ general_settings = {'timebin_statw': '12s',#timebin for statwt
                     'force_combine_spw' : True, #force the combination of spectral windows for faint sources. 
                     'allow_combine_spw' : False, #allow the combination of spectral windows for bright sources.
                     'allow_tapper' : False, #allow the use of tapering.
-                    # sources.
-              #       'new_phasecentre': '20:37:31.075 +25.33.04.896',  # VV250 C-band
-                    # 'new_phasecentre': '13:15:28.698 +62.07.13.784',  # VV250 C-band
-              #       'new_phasecentre': '13:15:08.613 +62.07.50.635',  # VV250 S-band
-              #       'new_phasecentre' : '13:15:28.924 +62.07.18.154', #VV250 X,Ku
-              #       'new_phasecentre' : '13:15:32.805 +62.07.36.367', #VV250
-              #       'new_phasecentre': '19:56:56.281 +11.24.57.941' #IRAS19542+1110
-              #       'new_phasecentre': '23:28:13.032 +08.45.00.775', # NGC7674
-              #       'new_phasecentre': '18:34:37.446 +59.47.33.398',  #NGC6670
-              #       'new_phasecentre': '09:36:51.647 +61.17.41.461', #UGC5101
-              #       'new_phasecentre': '11:28:29.636 +58.32.35.864',
-              #       'new_phasecentre': '14:57:05.990 +24.28.24.964', #VV340a
-              #       'new_phasecentre': '14:57:23.177 +24.35.32.209', #VV340a C band
-              #       'new_phasecentre': '05:14:11.823 +79.37.45.889', #VIIZw031 L band
                     }
 
 
@@ -177,11 +161,6 @@ params_very_faint = {'name': 'very_faint',
                             'spwmap': [], #leavy empty here. It will be filled later if combine='spw'
                             'nsigma_automask' : '3.0',
                             'nsigma_autothreshold' : '1.5',
-                            # 'uvtaper' : [''], #if VLA-C-config
-                            # 'uvtaper': [taper_size] if receiver in ('X', 'Ku', 'K', 'Ka') or
-                            #                             instrument == 'eM' else [''],#testing
-                            # 'uvtaper': [taper_size] if receiver in ('Ku', 'K', 'Ka') or
-                            #                             instrument == 'eM' else [''],
                             'uvtaper' : [''],
                             'with_multiscale' : True,
                             'scales': 'None',
@@ -200,13 +179,6 @@ params_very_faint = {'name': 'very_faint',
                              'spwmap': [], #leavy empty here. It will be filled later if combine='spw'
                              'nsigma_automask' : '3.0',
                              'nsigma_autothreshold' : '1.0',
-                            #  'uvtaper' : [''], #if VLA-C-config
-                            #  'uvtaper': [taper_size] if receiver in ('X', 'Ku', 'K', 'Ka') or
-                            #                             instrument == 'eM' else [''],#testing
-                            #  'uvtaper': [taper_size] if receiver in ('Ku', 'K', 'Ka') or
-                            #                             instrument == 'eM' else [''],
-                            #  'with_multiscale' : False if receiver in ('K', 'Ka', 'Ku') or
-                            #                               instrument == 'eM' else True,
                              'uvtaper' : [''],
                              'with_multiscale' : True,
                              'scales': 'None',
@@ -226,7 +198,7 @@ params_faint = {'name': 'faint',
                        'combine': 'spw' if general_settings['force_combine_spw'] else '',
                        'gaintype': 'T',
                        'calmode': 'p',
-                       'minsnr': 0.75 if instrument == 'eM' else 1.0,
+                       'minsnr': 0.1 if instrument == 'eM' else 0.1,
                        'spwmap': [],
                        'nsigma_automask' : '5.0',
                        'nsigma_autothreshold' : '2.5',
@@ -239,7 +211,6 @@ params_faint = {'name': 'faint',
                        'sigma_mask': 20,
                        'mask_grow_iterations': 4,
                        'combine':  '' if general_settings['allow_combine_spw'] == False else ('spw' if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else ''),
-                     #   'combine': 'spw' if receiver in ('C', 'X', 'K', 'Ka', 'Ku') or instrument == 'eM' else '',#testing
                      #   'combine': '', #if VLA-C-config
                        'gaintype': 'T',
                        'calmode': 'p',
@@ -247,7 +218,7 @@ params_faint = {'name': 'faint',
                        'spwmap': [],
                        'nsigma_automask' : '4.0',
                        'nsigma_autothreshold' : '1.5',
-                       'uvtaper' : [''], #if VLA-C-config
+                       'uvtaper' : [''],
                      #   'uvtaper': [taper_size] if receiver in ('Ku', 'K', 'Ka') or
                      #                              instrument == 'eM' else [''],
                        'with_multiscale': False if receiver in ('K', 'Ka', 'Ku') or instrument ==
@@ -255,13 +226,12 @@ params_faint = {'name': 'faint',
                        # 'scales' : '0,5,20',
                        'scales': 'None',
                        'compare_solints' : False},
-                'p2': {'robust': 0.5,
+                'p2': {'robust': 0.5 if instrument == 'eM' else 1.0,
                      #   'solint' : '240s' if receiver in ('X', 'K', 'Ka', 'Ku') or instrument == 'eM' else '60s',
                        'solint' : '96s' if instrument == 'eM' else '96s',
                        'sigma_mask': 15,
                        'mask_grow_iterations': 4,
                        'combine':  '' if general_settings['allow_combine_spw'] == False else ('spw' if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else ''),
-                     #   'combine': 'spw' if receiver in ('C', 'X', 'K', 'Ka', 'Ku') or instrument == 'eM' else '',#testing
                      #   'combine': '', #if VLA-C-config
                        'gaintype': 'T',
                        'calmode': 'p',
@@ -269,18 +239,12 @@ params_faint = {'name': 'faint',
                        'spwmap': [],
                        'nsigma_automask': '4.0',
                        'nsigma_autothreshold': '1.5',
-                       'uvtaper' : [''], #if VLA-C-config
-                     #   'uvtaper': [taper_size] if receiver in ('S', 'C', 'X', 'Ku', 'K', 'Ka') or
-                     #                              instrument == 'eM' else [''],#testing
-                     #   'uvtaper': [taper_size] if receiver in ('Ku', 'K', 'Ka') or
-                     #                              instrument == 'eM' else [''],
+                       # 'uvtaper' : [''], #if VLA-C-config
+                       'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('C','X','K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
                        'with_multiscale': True,
-                     #   'with_multiscale': False if receiver in ('K', 'Ka', 'Ku') or instrument ==
-                     #                               'eM' else True,
-                       # 'scales': '0,5,10,20,40',
                        'scales': 'None',
                        'compare_solints': False},
-                'ap1': {'robust': 0.5 if instrument == 'eM' else 0.5,
+                'ap1': {'robust': 0.5 if instrument == 'eM' else 1.0,
                      #    'solint': 'inf' if instrument == 'eM' else ('240s' if receiver in ('X', 'K', 'Ka', 'Ku') else '192s'), # testing
                         'solint': '192s' if instrument == 'eM' or receiver in ('K', 'Ka', 'Ku') else '96s',
                         'sigma_mask': 7,
@@ -294,14 +258,9 @@ params_faint = {'name': 'faint',
                         'spwmap': [],
                         'nsigma_automask' : '4.0',
                         'nsigma_autothreshold' : '1.5',
-                        'uvtaper' : [''], #if VLA-C-config
-                     #   'uvtaper': [taper_size] if receiver in ('S', 'C', 'X', 'Ku', 'K', 'Ka') or
-                     #                              instrument == 'eM' else [''],#testing
-                     #    'uvtaper' : [taper_size] if receiver in ('X', 'Ku', 'K', 'Ka') or
-                     #                                instrument == 'eM' else [''],
+                        # 'uvtaper' : [''], #if VLA-C-config
+                        'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('C','X','K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
                         'with_multiscale': True,
-                     #    'with_multiscale': False if receiver in ('K', 'Ka', 'Ku') or instrument ==
-                     #                                'eM' else True,
                         # 'scales': '0,5,20,40',
                         'scales': 'None',
                         'compare_solints' : False},
@@ -324,7 +283,7 @@ params_standard_1 = {'name': 'standard_1',
                           'gaintype': 'T',
                           'calmode': 'p',
                      #      'minsnr': 1.0 if receiver in ('X', 'Ku', 'K', 'Ka') or instrument == 'eM' else 1.0,
-                          'minsnr': 0.5, #testing
+                          'minsnr': 0.1, #testing
                           'spwmap': [],
                           'nsigma_automask' : '5.0',
                           'nsigma_autothreshold' : '2.5',
@@ -349,19 +308,15 @@ params_standard_1 = {'name': 'standard_1',
                           'nsigma_automask' : '3.0',
                           'nsigma_autothreshold' : '1.5',
                           'uvtaper' : [''],
-                          # 'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''], #testing
                           'with_multiscale' : True,
                           # 'scales' : '0,5,20',
                           'scales': 'None',
                           'compare_solints' : False},
-                   'p2': {'robust': 0.5 if receiver in ('K', 'Ka') or instrument == 'eM' else 0.5,
+                   'p2': {'robust': 0.5 if instrument == 'eM' else 1.0,
                           'solint': '48s',
-                     #      'sigma_mask': 20.0 if receiver in ('C', 'X', 'K', 'Ka', 'Ku') or instrument == 'eM' else 30.0,#testing
                           'sigma_mask': 15.0 if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else 15.0,
                           'mask_grow_iterations': 4,
-                     #      'combine': 'spw' if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else '',
                           'combine':  '' if general_settings['allow_combine_spw'] == False else ('spw' if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else ''),
-                     #      'combine': 'spw' if instrument == 'eM' else '', #testing
                      #      'combine': 'spw', #testing
                           'gaintype': 'T',
                           'calmode': 'p',
@@ -371,7 +326,7 @@ params_standard_1 = {'name': 'standard_1',
                           'nsigma_automask' : '3.0',
                           'nsigma_autothreshold' : '1.0',
                           # 'uvtaper' : [''],
-                          'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
+                          'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('C','X','K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
                           #testing
                      #      'uvtaper': [taper_size] if receiver in ('C', 'Ku', 'K', 'Ka') or instrument == 'eM' else [''],#testing
                      #      'uvtaper' : [taper_size] if receiver in ('X', 'Ku', 'K', 'Ka') or instrument == 'eM' else [''],
@@ -379,7 +334,7 @@ params_standard_1 = {'name': 'standard_1',
                           # 'scales': '0,5,10,20,40',
                           'scales': 'None',
                           'compare_solints' : False},
-                   'ap1': {'robust': 0.5,
+                   'ap1': {'robust': 0.5 if instrument == 'eM' else 1.0,
                            'solint': '240s' if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else '96s',
                            'sigma_mask': 10.0 if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else 10.0,
                            'mask_grow_iterations': 8,
@@ -394,7 +349,7 @@ params_standard_1 = {'name': 'standard_1',
                            'nsigma_automask' : '3.0',
                            'nsigma_autothreshold' : '1.0',
                            # 'uvtaper' : [''],
-                           'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
+                           'uvtaper' : [''] if general_settings['allow_tapper'] == False else ([taper_size] if receiver in ('C','X','K', 'Ka', 'Ku') or instrument == 'eM' else ['']),
                      #       'uvtaper': [taper_size] if receiver in ('C', 'Ku', 'K', 'Ka') or instrument == 'eM' else [''],#testing
                      #       'uvtaper' : [taper_size] if receiver in ('Ku', 'K', 'Ka') or instrument == 'eM' else [''],
                            'with_multiscale': True,
@@ -564,51 +519,4 @@ params_bright = {'name': 'bright',
                  }
 
 
-params_trial_2 = None # comment this and uncomment the following lines
-                      # if this is the second pass of self-calibration.
-
-
-# params_trial_2 = {'name': 'trial_2',
-#                  'p0': {'robust': 0.0,
-#                         'solint' : '36s',
-#                         'sigma_mask': 12,
-#                         'combine': '',
-#                         'gaintype': 'G',
-#                         'calmode': 'p',
-#                         'minsnr': 3.0,
-#                         'spwmap': [],
-#                         'nsigma_automask': '6.0',
-#                         'nsigma_autothreshold': '3.0',
-#                         'uvtaper' : [''],
-#                         'with_multiscale' : True,
-#                         'scales': '0,5,20,50',
-#                         'compare_solints' : False},
-#                  'p1': {'robust': 0.5,
-#                         'solint' : '12s',
-#                         'sigma_mask': 8,#set to 15 if e-MERLIN
-#                         'combine': '',
-#                         'gaintype': 'G',
-#                         'calmode': 'p',
-#                         'minsnr': 3.0,
-#                         'spwmap': [],
-#                         'nsigma_automask': '6.0',
-#                         'nsigma_autothreshold': '3.0',
-#                         'uvtaper' : [''],
-#                         'with_multiscale': True,
-#                         'scales': '0,5,20,50',
-#                         'compare_solints': False},
-#                  'ap1': {'robust': 0.5,
-#                          'solint': '60s',
-#                          'sigma_mask': 8,
-#                          'combine': '',
-#                          'gaintype': 'G',
-#                          'calmode': 'ap',
-#                          'minsnr': 3.0,
-#                          'spwmap': [],
-#                          'uvtaper' : [''],
-#                          'nsigma_automask': '3.0',
-#                          'nsigma_autothreshold': '1.5',
-#                          'with_multiscale': True,
-#                          'scales': '0,5,20,50',
-#                          'compare_solints': False},
-#                  }
+params_trial_2 = None
