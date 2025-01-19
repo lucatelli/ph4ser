@@ -1223,7 +1223,11 @@ class Pipeline:
         else:
             base_name = base_name
 
-        os.system("export OPENBLAS_NUM_THREADS=1 && python imaging_with_wsclean.py --f " +
+        imaging_script_path = os.path.dirname(os.path.abspath(__file__))
+        print(' >> Imaging script path:', imaging_script_path)
+
+        # os.system("export OPENBLAS_NUM_THREADS=1 && python imaging_with_wsclean.py --f " +
+        os.system("export OPENBLAS_NUM_THREADS=1 && python " + imaging_script_path + "/imaging_with_wsclean.py --f " +
                   g_name + " --sx "
                   + str(imsize) + " --sy " + str(imsizey) + " --niter "
                   + str(niter) + " --data " + datacolumn + " --cellsize " + cell
