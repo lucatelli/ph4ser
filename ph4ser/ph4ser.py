@@ -1761,12 +1761,13 @@ class Pipeline:
                          niter=self.config.init_parameters['fov_image']['niter'],
                          PLOT=False)
 
-        _, _ = self.compute_image_stats(path=self.config.path,
-                                   image_list=self.image_list,
-                                   image_statistics=self.image_statistics,
-                                   prefix=self.config.init_parameters['fov_image']['basename'],
-                                   sigma=10.0,
-                                   selfcal_step='p0')
+        self.image_statistics, self.image_list = \
+            self.compute_image_stats(path=self.config.path,
+                                     image_list=self.image_list,
+                                     image_statistics=self.image_statistics,
+                                     prefix=self.config.init_parameters['fov_image']['basename'],
+                                     sigma=10.0,
+                                     selfcal_step='p0')
 
         # mask_grow_iterations = global_parameters['mask_grow_iterations']
 
