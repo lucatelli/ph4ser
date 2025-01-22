@@ -1740,6 +1740,53 @@ class Pipeline:
             print(f"     => {self.config.refant}")
             self.refant = self.config.refant
 
+    def _run_fov_image(self):
+        """
+        Create a FOV dirty image.
+        """
+        # niter = 50#knowing the dirty image is enough.
+        # robust = 0.5  # or 0.5 if lots of extended emission.
+        self.run_wsclean(self.g_name_,
+                         imsize=self.config.init_parameters['fov_image']['imsize'],
+                        #  imsizey=self.config.init_parameters['fov_image']['imsizey'],
+                         cell=self.config.init_parameters['fov_image']['cell'],
+                         robust=self.config.init_parameters['fov_image']['robust'],
+                         base_name=self.config.init_parameters['fov_image']['basename'],
+                         nsigma_automask='6.0', nsigma_autothreshold='2.0',
+                         n_interaction='0', savemodel=False, quiet=self.config.quiet,
+                         datacolumn='DATA',
+                         nc=self.config.nc,negative_arg=self.config.negative_arg,
+                         with_multiscale=False,
+                         shift = self.config.init_parameters['fov_image']['FIELD_SHIFT'],
+                         niter=self.config.init_parameters['fov_image']['niter'],
+                         PLOT=False)
+
+        _, _ = self.compute_image_stats(path=self.config.path,
+                                   image_list=self.image_list,
+                                   image_statistics=self.image_statistics,
+                                   prefix=self.config.init_parameters['fov_image']['basename'],
+                                   sigma=10.0,
+                                   selfcal_step='p0')
+
+        # mask_grow_iterations = global_parameters['mask_grow_iterations']
+
+        # mask_name = create_mask(image_list['test_image_0'],
+        #                         rms_mask=rms_mask,
+        #                         sigma_mask=p0_params['sigma_mask'],
+        #                         mask_grow_iterations=mask_grow_iterations)        
+        
+        file_list = glob.glob(f"{self.config.path}*MFS-image.fits")
+        file_list.sort(key=os.path.getmtime, reverse=False)
+
+        try:
+            self.image_list['FOV_image'] = file_list[-1]
+        except:
+            self.image_list['FOV_image'] = file_list
+        self.image_list['FOV_residual'] = self.image_list['FOV_image'].replace(
+            'MFS-image.fits','MFS-residual.fits')
+        self.image_list['FOV_model'] = self.image_list['FOV_image'].replace(
+            'MFS-image.fits','MFS-model.fits')
+
     def _run_test_image(self):
         niter_test = self.config.init_parameters['test_image']['niter']
         robust = self.config.init_parameters['test_image']['robust']
