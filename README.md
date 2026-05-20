@@ -4,6 +4,9 @@ This is an improved version of the self-calibration module contained in the `mor
 `ph4ser` is still in development, so expect bugs and issues. Feel free to send any feedback and idea
 that you may have. 
 
+## Notice 20.05.2026
+***Major update and lots of improvements coming out soon.***
+
 
 ## Install dependencies
 To install the dependencies, just follow the instructions found in 
