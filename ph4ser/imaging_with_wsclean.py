@@ -2,8 +2,21 @@ import pandas as pd
 import numpy as np
 import argparse
 import os
+import subprocess
+import shlex
 import glob
 import time
+import uuid
+import shutil
+from pathlib import Path
+
+import resource
+soft, hard = resource.getrlimit(resource.RLIMIT_NPROC)
+new_soft_limit = hard
+resource.setrlimit(resource.RLIMIT_NPROC, (new_soft_limit, hard))
+soft, hard = resource.getrlimit(resource.RLIMIT_NPROC)
+
+
 def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
             continue_clean='False',nc=4):
     g_vis = g_name + '.ms'
@@ -28,6 +41,7 @@ def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
     if continue_clean == 'False':
         image_deepclean_name = (base_name + '_' + g_name + '_' +
                                 imsizex + 'x' + imsizey + '_' + \
+                                'am_' + str(args.nsigma_automask) + '_at_' + str(args.nsigma_autothreshold) + '_' + \
                                 cell + '_' + \
                                 deconvolver[1:] + '_' + taper + \
                                 uvtaper + '_r' + str(robust))
@@ -41,12 +55,17 @@ def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
     print(image_deepclean_name)
 
     if not os.path.exists(root_dir_sys + image_deepclean_name + ext) or continue_clean == 'True':
-        if nc < 4:
-            _nc = 4
-        elif nc > 8:
-            _nc = nc
+        # if nc < 4:
+        #     _nc = 4
+        # elif nc > 6:
+        #     _nc = nc
+        # else:
+        #     _nc = 6
+        if nc > 16:
+            _nc = 16
         else:
-            _nc = 8
+            # _nc = 8
+            _nc = nc
         if running_container == 'native':
             # 'mpirun -np 4 wsclean-mp'
 
@@ -60,26 +79,75 @@ def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
                 ' ' + opt_args + ' ' + data_column + ' ' + root_dir + g_vis)
             print(' ++==>> Command to be executed by WSClean: ')
             print(command_exec)
-            os.system(command_exec)
+            subprocess.run(shlex.split(command_exec), check=True)
+
+        # if running_container == 'singularity':
+        #     command_exec = (
+        #     'singularity exec --nv '
+        #     '--bind /usr/local/cuda-13.0:/usr/local/cuda-13.0 ' \
+        #     '--bind /usr/local/cuda-13.0/lib64:/usr/local/cuda/lib64 ' \
+        #     '--bind ' + mount_dir + ' ' + wsclean_dir +
+        #     ' ' + 'wsclean -name ' + root_dir +
+        #     # ' ' + 'mpirun -np ' + str(_nc) + ' wsclean-mp -name ' + root_dir +
+        #     # ' ' + 'mpirun --use-hwthread-cpus wsclean-mp -name ' + root_dir +
+        #     image_deepclean_name +
+        #     ' -size ' + imsizex + ' ' + imsizey + ' -scale ' + cell +
+        #     ' ' + gain_args + ' -niter ' + niter + ' -weight ' + weighting +
+        #     ' ' + robust + ' ' + auto_mask + ' ' + auto_threshold + mask_file +
+        #     ' ' + deconvolver + ' ' + deconvolver_options +
+        #     ' ' + deconvolver_args + ' ' + taper_mode + uvtaper +
+        #     ' ' + opt_args + ' ' + data_column + ' ' + root_dir + g_vis)
+
+        #     print(' ++==>> Command to be executed by Singularity > WSClean: ')
+        #     print(command_exec)
+        #     os.system(command_exec)
+
+        # Define a scratch dir on the host
+        # scratch_dir = '/media/sagauga/starbyte/wsclean_temp/'
+        # scratch_dir = f'/media/sagauga/starbyte/wsclean_temp/{uuid.uuid4().hex}/'
+        # scratch_dir = f'/home/lucatelli/astronomical_data/wsclean_temp/{uuid.uuid4().hex}/'
+        if os.path.exists('/media/sagauga/temp_wsclean/'):
+            scratch_dir = f'/media/sagauga/temp_wsclean/wsclean_temp/{uuid.uuid4().hex}/'
+        # if os.path.exists('/media/sagauga/void/'):
+        #     scratch_dir = f'/media/sagauga/void/wsclean_temp/{uuid.uuid4().hex}/'
+        # elif os.path.exists('/media/sagauga/galnet/'):
+        #     scratch_dir = f'/media/sagauga/galnet/wsclean_temp/{uuid.uuid4().hex}/'
+            # scratch_dir = f'/media/sagauga/starbyte/wsclean_temp/{uuid.uuid4().hex}/'
+        # if os.path.exists('/media/sagauga/starbyte/'):
+        #     scratch_dir = f'/media/sagauga/starbyte/wsclean_temp/{uuid.uuid4().hex}/'
+        #     # scratch_dir = f'/media/sagauga/galnet/wsclean_temp/{uuid.uuid4().hex}/'
+        elif os.path.exists('/mnt/scratch/lucatelli/temp_wsclean/'):
+            scratch_dir = f'/mnt/scratch/lucatelli/temp_wsclean/wsclean_temp/{uuid.uuid4().hex}/'
+        elif os.path.exists('/home/lucatelli/astronomical_data/'):
+            scratch_dir = f'/home/lucatelli/astronomical_data/wsclean_temp/{uuid.uuid4().hex}/'
+        else:
+            # scratch_dir = str(Path.home() / f'wsclean_temp/{uuid.uuid4().hex}/')
+            scratch_dir = str(f'./wsclean_temp/{uuid.uuid4().hex}/')
+        os.makedirs(scratch_dir, exist_ok=True)
+        print(' >> Using scratch directory for WSClean temporary files: ', scratch_dir)
+
 
         if running_container == 'singularity':
             command_exec = (
-            'singularity exec --nv --bind ' + mount_dir + ' ' + wsclean_dir +
-            # ' ' + 'wsclean -name ' + root_dir +
-            ' ' + 'mpirun -np ' + str(_nc) + ' wsclean-mp -name ' + root_dir +
-            # ' ' + 'mpirun --use-hwthread-cpus wsclean-mp -name ' + root_dir +
-            image_deepclean_name +
+            'singularity exec --nv '
+            # '--bind /usr/local/cuda-13.0:/usr/local/cuda-13.0 ' \
+            # '--bind /usr/local/cuda-13.0/lib64:/usr/local/cuda/lib64 ' \
+            '--bind ' + scratch_dir + ':/wsclean_tmp ' +  # <-- bind scratch
+            '--bind ' + mount_dir + ' ' + wsclean_dir +
+            ' ' + 'wsclean -name ' + root_dir + image_deepclean_name +
+            # ' ' + 'mpirun -np ' + str(_nc) + ' wsclean-mp -name ' + root_dir + image_deepclean_name +
             ' -size ' + imsizex + ' ' + imsizey + ' -scale ' + cell +
             ' ' + gain_args + ' -niter ' + niter + ' -weight ' + weighting +
             ' ' + robust + ' ' + auto_mask + ' ' + auto_threshold + mask_file +
             ' ' + deconvolver + ' ' + deconvolver_options +
             ' ' + deconvolver_args + ' ' + taper_mode + uvtaper +
+            ' -temp-dir /wsclean_tmp ' +                  # <-- use it
             ' ' + opt_args + ' ' + data_column + ' ' + root_dir + g_vis)
-
             print(' ++==>> Command to be executed by Singularity > WSClean: ')
             print(command_exec)
-            os.system(command_exec)
+            subprocess.run(shlex.split(command_exec), check=True)
 
+        shutil.rmtree(scratch_dir, ignore_errors=True)
         image_stats = {
             "#basename": image_deepclean_name + ext}  # get_image_statistics(image_deep_selfcal  + ext)
         image_stats['imagename'] = image_deepclean_name + ext
@@ -91,7 +159,7 @@ def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
         print('Skipping imaging; already done.')
         return (None)
 
-    pass
+    # pass
 
 
 def parse_float_list(str_values):
@@ -145,6 +213,8 @@ if __name__ == "__main__":
     parser.add_argument("--scales", type=str, nargs='?', default="None",
                         help="Scales to be used with the multiscale deconvolver in WSClean. "
                              "If None, scales will be determined automatically by WSClean.")
+    parser.add_argument("--maxmscales", type=str, nargs='?', default="8",
+                        help="Maximum number of scales to be used with the multiscale deconvolver in WSClean. ")
 
     parser.add_argument("--sx", type=str, nargs='?', default='2048',
                         help="Image Size x-axis")
@@ -164,7 +234,7 @@ if __name__ == "__main__":
     parser.add_argument("--nsigma_automask", type=str, nargs='?', default='4.0',
                         help="Sigma level for automasking in wsclean.")
 
-    parser.add_argument("--nsigma_autothreshold", type=str, nargs='?', default='1.5',
+    parser.add_argument("--nsigma_autothreshold", type=str, nargs='?', default='2.0',
                         help="Sigma level for autothreshold in WSClean.")
 
     parser.add_argument("--mask", nargs='?', default=None,
@@ -204,7 +274,14 @@ if __name__ == "__main__":
     running_container = args.wsclean_install
 
     if running_container == 'native':
-        os.system('export OPENBLAS_NUM_THREADS=1')
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+    threads = os.cpu_count()
+    # threads_proc = int(threads - 8) if threads > 16 else int(threads)
+    # threads_proc = int(16)
+    threads_proc = int(threads)
+    
+    print(f' >> Using {threads_proc} threads for processing. Total threads available: {threads}')
 
     # for i in range(len(image_list)):
     field = os.path.basename(args.f).replace('.ms', '')
@@ -216,11 +293,20 @@ if __name__ == "__main__":
     if running_container == 'singularity':
         mount_dir = root_dir_sys + ':/mnt'
         root_dir = '/mnt/'
-        wsclean_dir = '/media/sagauga/xfs_evo/wsclean3.4-idg-everybeam-eMERLIN_portable.sif'
+        wsclean_dir = os.path.dirname(os.path.abspath(__file__)) + '/wsclean36_cpu_portable_emerlin.sif'
+        print('Using WSClean from singularity image: ', wsclean_dir)
+        print('WSClean version from singularity image: ')
+        subprocess.run([
+            "singularity", "exec", "--nv",
+            # "--bind", "/usr/local/cuda-13.0:/usr/local/cuda-13.0",
+            # "--bind", "/usr/local/cuda-13.0/lib64:/usr/local/cuda/lib64",
+            "--bind", mount_dir,
+            wsclean_dir, "wsclean", "--version"
+        ], check=True)
     if running_container == 'native':
         mount_dir = ''
         root_dir = root_dir_sys
-        os.system('export OPENBLAS_NUM_THREADS=1')
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
     base_name = args.save_basename
 
@@ -246,39 +332,49 @@ if __name__ == "__main__":
     if args.deconvolution_mode == 'good':
         if with_multiscale == True or with_multiscale == 'True':
             deconvolver = '-multiscale'
-            deconvolver_options = ' -multiscale-scale-bias 0.75 -multiscale-gain 0.05 '
+            deconvolver_options = ' -multiscale-scale-bias 0.65 -multiscale-gain 0.05 -multiscale-convolution-padding 1.3 -padding 1.3 -clean-border 1 '
             if (args.scales is None) or (args.scales == 'None'):
-                deconvolver_options = deconvolver_options + ' -multiscale-max-scales 6 '
+                deconvolver_options = deconvolver_options + ' -multiscale-max-scales ' + args.maxmscales + ' '
             else:
                 deconvolver_options = (deconvolver_options + ' -multiscale-scales ' + args.scales + ' ')
         else:
             deconvolver = ' '
             deconvolver_options = (' ')
-
-            # deconvolver_options = ('-multiscale-max-scales 5 -multiscale-scale-bias 0.5 ')
         nc = args.nc
+        # nc = 8 #debug
         negative_arg = '-'+args.negative_arg
+        if nc > 3:
+            dec_chan = int(np.nanmax([4, nc//2]))
+        else:
+            dec_chan = nc
+        dec_chan = nc #debug
         deconvolver_args = (' '
                             # Setting some important arguments to custom values
-                            '-deconvolution-threads 16 -j 16 '
-                            '-parallel-reordering 16 '
+                            '-deconvolution-threads ' + str(threads_proc) + ' -j ' + str(threads_proc) + ' '
+                            '-parallel-reordering ' + str(threads_proc) + ' '
+                            '-parallel-deconvolution 1024 '
                             # '-parallel-deconvolution 1024 '
-                            '-weighting-rank-filter 3 -weighting-rank-filter-size 128 '
-                            '-gridder wgridder -wstack-nwlayers-factor 3 -wgridder-accuracy 1e-7 '
-                            '-no-mf-weighting ' # this must be set to generate science images 
                             '-channels-out '+str(nc)+' -join-channels ' + negative_arg + ' '
-                            '-fit-spectral-pol  ' +str(4)+' -deconvolution-channels ' +str(16)+' '
+                            '-no-mf-weighting ' # this must be set to generate science images 
+                            '-fit-spectral-pol  ' +str(3)+' '+' -deconvolution-channels ' +str(dec_chan)+' '
+                            # '-fit-spectral-log-pol ' +str(2)+' '+' -deconvolution-channels ' +str(dec_chan)+' '
+                            '-gridder wgridder -wgridder-accuracy 1e-5 -parallel-gridding 8 '
+                            '-apply-primary-beam '
+                            #updates 2026
+                            '-weighting-rank-filter 3 -weighting-rank-filter-size 128 '
+                            # '-gridder idg -idg-mode hybrid -grid-with-beam -circular-beam -save-psf-pb -save-uv '
+                            #cleanup 2026
+                            # '-wstack-nwlayers-factor 3 ' +' -deconvolution-channels ' +str(nc)
                             # '-fit-spectral-pol  ' +str(4)+' '
-                            '-save-psf-pb -apply-primary-beam -save-weights '
+                            # '-save-psf-pb -save-weights '
                             # Other arguments that may be useful
-                            '-circular-beam '
                             # '-store-imaging-weights -save-weights '
-                            # '-no-negative '
-                            # Some testing parameters 
+                            # '-no-negative -abs-threshold 3.5e-6 '
+                            # Some testing parameters
                             # '-channel-division-frequencies 4.0e9,4.5e9,5.0e9,5.5e9,'
                             # '29e9,31e9,33e9,35e9 ' #-gap-channel-division
                             # '-save-weights -local-rms -local-rms-window 50 '
-                            # -beam-fitting-size 0.7
+                            # '-beam-fitting-size 0.1 '
                             # ' -circular-beam -beam-size 0.1arcsec -beam-fitting-size = 0.7 ' 
                             # '-facet-beam-update 60 -save-aterms -diagonal-solutions '
                             # '-apply-facet-solutions ' 
@@ -321,7 +417,7 @@ if __name__ == "__main__":
     if args.minuv_l is not None:
         uvselection = uvselection + ' -minuv-l ' + args.minuv_l + ' '
     # general arguments
-    gain_args = ' -mgain 0.5 -gain 0.05 -nmiter 500 ' # -super-weight 9.0
+    gain_args = ' -mgain 0.5 -gain 0.05 -nmiter 20 ' # -super-weight 9.0
 
     if args.shift == 'None' or args.shift == None:
         # if args.shift != ' ':
@@ -332,8 +428,9 @@ if __name__ == "__main__":
     # +62.07.11.886 '
     if args.quiet == 'True':
         quiet = ' -quiet '
+        # quiet = ' ' #debug
     else:
-        quiet = ' '
+        quiet = ' -v '
 
     # quiet = ' '
 
@@ -346,16 +443,13 @@ if __name__ == "__main__":
         continue_clean = ' '
     opt_args = (
                 # ' -mem 80 -abs-mem 35 '
+                # ' -abs-mem 80 '
                 # '-pol RL,LR -no-negative -circular-beam -no-reorder '
                 # ' -save-first-residual -save-weights -save-uv '-maxuv-l 3150000
                 ' '+uvselection+continue_clean+args.opt_args+' '
                 ' -log-time -field 0 ' + quiet + update_model_option + ' ')
     opt_args = opt_args + shift_options
 
-
-
-        # wsclean_dir = '/home/sagauga/apps/wsclean_nvidia470_gpu.simg'
-        # wsclean_dir = '/raid1/scratch/lucatelli/apps/wsclean_wg_eb.simg'
     for robust in robusts:
         for uvtaper in tapers:
             if uvtaper == '':
