@@ -57,6 +57,7 @@ import pandas as pd
 from casatasks import *
 import numpy as np
 np.set_printoptions(legacy='1.25')
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.optimize import curve_fit

@@ -32,6 +32,7 @@ print('Date',__date__)
 import os
 import sys
 
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from matplotlib.text import Text
@@ -39,9 +40,16 @@ from matplotlib.patches import Ellipse
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.text import Text
 from matplotlib import rcParams
+import matplotlib.figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import io
+import gc
+from IPython.display import Image, display
 
 
 import numpy as np
+# np.set_printoptions(precision=4, suppress=True, linewidth=100)
+np.set_printoptions(legacy='1.25')
 from sympy import *
 import casatasks
 from casatasks import *
@@ -50,7 +58,6 @@ import casatools
 from scipy.ndimage import rotate
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import numpy as np
 import astropy.io.fits as pf
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -98,7 +105,6 @@ from scipy.stats import circmean, circstd
 from scipy.signal import savgol_filter
 
 from astropy.cosmology import FlatLambdaCDM
-import numpy as np
 from astropy import units as u
 from astropy import coordinates
 import pandas as pd
@@ -114,9 +120,6 @@ import dynesty
 from dynesty import plotting as dyplot
 import corner
 
-
-
-import numpy as np
 from scipy import ndimage
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -183,6 +186,7 @@ exec(open(f"{morphen_path}/image_fitting.py").read())
 exec(open(f"{morphen_path}/image_morphometry.py").read())
 # exec(open(f"{morphen_path}/image_photometry.py").read())
 exec(open(f"{morphen_path}/plotting.py").read())
+exec(open(f"{morphen_path}/gain_plots.py").read())
 exec(open(f"{morphen_path}/radio_sed.py").read())
 exec(open(f"{morphen_path}/radio_utils.py").read())
 exec(open(f"{morphen_path}/signal_stats.py").read())
