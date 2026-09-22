@@ -27,30 +27,78 @@ def reset_rc_params():
     """
     Global configuration for matplotlib.pyplot
     """
-    mpl.rcParams.update({'font.size': 16,
-                         "text.usetex": False,  #
-                         "font.family": "sans-serif",
+    # global_font_size = 14
+    global_font_size = 16
+    mpl.rcParams.update({'font.size': global_font_size,
+                         'text.usetex': False, 
+                         'font.family': 'sans-serif',
                          'mathtext.fontset': 'stix',
-                         "font.family": "sans",
-                         'font.weight': 'medium',
+                         'font.family': 'sans',
+                         'font.weight': 'medium',  
                          'font.family': 'STIXGeneral',
-                         'xtick.labelsize': 16,
-                         'figure.figsize': (6, 4),
-                         'ytick.labelsize': 16,
-                         'axes.labelsize': 16,
-                         'xtick.major.width': 1,
-                         'ytick.major.width': 1,
-                         'axes.linewidth': 1.5,
-                         'axes.edgecolor': 'orange',
-                         'lines.linewidth': 2,
-                         'legend.fontsize': 14,
-                         'grid.linestyle': '--',
-                         # 'grid.color':'black',
-                         'axes.grid.which': 'major',
-                         'axes.grid.axis': 'both',
-                         'axes.spines.right': True,
-                         'axes.grid': True,
-                         'axes.titlesize': 16,
-                         'legend.framealpha': 1.0
-                         })
+                            # 'text.usetex' : True,
+                            # 'font.family' : 'serif',
+                            # 'font.serif' : ['Garamond Libre', 'EB Garamond', 'Cormorant Garamond', 'serif'],
+                            # 'text.latex.preamble': r'''
+                            # \usepackage{ebgaramond-maths}
+                            # \usepackage{garamondlibre}
+                            # \usepackage{amsmath}
+                            # \usepackage{amssymb}
+                            # ''',
+                            'xtick.labelsize': global_font_size,
+                            'figure.figsize': (6, 4),
+                            'ytick.labelsize': global_font_size,
+                            'axes.labelsize': global_font_size,
+                            'xtick.major.width': 1,
+                            'ytick.major.width': 1,
+                            'axes.linewidth': 1.5,
+                            'axes.edgecolor':'orange',
+                            'lines.linewidth': 2,
+                            'legend.fontsize': global_font_size,
+                            'grid.linestyle': '--',
+                            # 'grid.color':'black',
+                            #  'figure.dpi': 96,
+                            'axes.grid.which': 'major',  
+                            'axes.grid.axis': 'both', 
+                            'axes.spines.right': True,
+                            'axes.grid': True,
+                            'axes.titlesize' : global_font_size,
+                            'legend.framealpha': 1.0
+                            })
     pass
+
+
+# """
+# #Config
+# """
+# def reset_rc_params():
+#     """
+#     Global configuration for matplotlib.pyplot
+#     """
+#     mpl.rcParams.update({'font.size': 16,
+#                          "text.usetex": False,  #
+#                          "font.family": "sans-serif",
+#                          'mathtext.fontset': 'stix',
+#                          "font.family": "sans",
+#                          'font.weight': 'medium',
+#                          'font.family': 'STIXGeneral',
+#                          'xtick.labelsize': 16,
+#                          'figure.figsize': (6, 4),
+#                          'ytick.labelsize': 16,
+#                          'axes.labelsize': 16,
+#                          'xtick.major.width': 1,
+#                          'ytick.major.width': 1,
+#                          'axes.linewidth': 1.5,
+#                          'axes.edgecolor': 'orange',
+#                          'lines.linewidth': 2,
+#                          'legend.fontsize': 14,
+#                          'grid.linestyle': '--',
+#                          # 'grid.color':'black',
+#                          'axes.grid.which': 'major',
+#                          'axes.grid.axis': 'both',
+#                          'axes.spines.right': True,
+#                          'axes.grid': True,
+#                          'axes.titlesize': 16,
+#                          'legend.framealpha': 1.0
+#                          })
+#     pass
