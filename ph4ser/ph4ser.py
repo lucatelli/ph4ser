@@ -218,7 +218,7 @@ def get_science_spwids(vis, drop_empty=True, verbose=False):
     return selected
 
 
-def get_spw_groups(vis, spwids=None, verbose=False):
+def get_spw_groups(vis, spwids=None, verbose=False, with_counts=False):
     """
     Groups of spectral windows that are observed together.
 
@@ -230,58 +230,76 @@ def get_spw_groups(vis, spwids=None, verbose=False):
     Groups are intersected with `spwids`, so SPWs that carry no data (leftovers
     in the SPECTRAL_WINDOW table, ALMA WVR windows, ...) never appear.
 
+    How often each group occurs matters: in a concatenation of several epochs a
+    single scan may mix bands that are otherwise observed separately, and that
+    one scan must not outweigh the hundreds of scans that define the regular
+    grouping. `with_counts` exposes those weights to get_spwmap().
+
     Args:
         vis: Input visibility file (.ms).
         spwids: SPWs to keep. None (default) uses get_science_spwids().
         verbose: If True, print the groups found.
+        with_counts: If True, return ``{group_tuple: n_scans}`` instead of a
+            list of groups.
 
     Returns:
-        list: List of sorted lists of int SPW ids; never empty.
+        list: List of sorted lists of int SPW ids; never empty. If
+        `with_counts`, a dict mapping each group (as a tuple) to the number of
+        scans that recorded it.
     """
     if spwids is None:
         spwids = get_science_spwids(vis)
     spwids = sorted(set(int(spwid) for spwid in np.atleast_1d(spwids)))
 
-    groups = set()
+    counts = {}
+
+    def _count(group):
+        group = tuple(sorted(group))
+        counts[group] = counts.get(group, 0) + 1
+
     try:
         lobs = listobs(vis=vis)
         for key in (k for k in lobs if 'scan_' in k):
             for inner_key in lobs[key]:
-                groups.add(tuple(sorted(int(spwid) for spwid
-                                        in lobs[key][inner_key]['SpwIds'])))
+                _count(int(spwid) for spwid in lobs[key][inner_key]['SpwIds'])
     except Exception as exc:
         print(f'[get_spw_groups] listobs failed on {vis} ({exc}); '
               'falling back to msmd metadata.')
 
-    if not groups:
+    if not counts:
         msmd.open(vis)
         try:
             for scan in msmd.scannumbers():
                 try:
-                    groups.add(tuple(sorted(int(spwid) for spwid
-                                            in msmd.spwsforscan(int(scan)))))
+                    _count(int(spwid) for spwid in msmd.spwsforscan(int(scan)))
                 except Exception:
                     continue
         except Exception:
-            groups = set()
+            counts = {}
         finally:
             msmd.done()
 
-    # drop SPWs that carry no data, then drop groups left empty
+    # drop SPWs that carry no data, then drop groups left empty, accumulating
+    # the scan counts of any groups that become identical once trimmed
     keep = set(spwids)
-    grouped = sorted({tuple(spwid for spwid in group if spwid in keep)
-                      for group in groups} - {()})
+    trimmed = {}
+    for group, weight in counts.items():
+        group = tuple(spwid for spwid in group if spwid in keep)
+        if group:
+            trimmed[group] = trimmed.get(group, 0) + weight
 
-    if not grouped:
+    if not trimmed:
         # no usable scan information: treat the whole selection as one group
-        grouped = [tuple(spwids)]
-
-    grouped = [list(group) for group in grouped]
+        trimmed = {tuple(spwids): 1}
 
     if verbose:
-        print(f'++==> SPW groups for {os.path.basename(vis)}: {grouped}')
+        print(f'++==> SPW groups for {os.path.basename(vis)}:')
+        for group, weight in sorted(trimmed.items()):
+            print(f'     ==> {list(group)}  ({weight} scans, reference SPW {min(group)})')
 
-    return grouped
+    if with_counts:
+        return trimmed
+    return [list(group) for group in sorted(trimmed)]
 
 
 def get_spwmap(vis, spwids=None, verbose=False):
@@ -291,10 +309,25 @@ def get_spwmap(vis, spwids=None, verbose=False):
 
     CASA indexes spwmap by SPW *id*: element i names the SPW whose solutions
     are applied to SPW i. The list must therefore be long enough to cover the
-    highest SPW id in use -- it is *not* one entry per selected SPW. Every SPW
-    in a group is mapped onto the lowest id of that group (where the combined
-    solution is stored); SPWs outside the selection are mapped onto themselves,
-    which is a no-op, so leftover metadata cannot shift the mapping.
+    highest SPW id in use -- it is *not* one entry per selected SPW. SPWs
+    outside the selection are mapped onto themselves, which is a no-op, so
+    leftover metadata cannot shift the mapping.
+
+    With ``combine='spw'`` CASA does not merge every SPW into one solution: it
+    solves per solution interval, and each solve combines only the SPWs present
+    in that interval, storing the result under the lowest SPW id of *that*
+    combination. A dataset whose scans alternate between [0-3] and [4-7] there-
+    fore yields solutions at SPW 0 and SPW 4, and both references must appear
+    in the map.
+
+    A SPW can belong to more than one group when a single scan mixes bands that
+    are otherwise observed separately -- routine in a concatenation of several
+    epochs. The map has one global entry per SPW and cannot express that, so
+    the reference is taken from the group that accounts for most of the SPW's
+    scans; the minority scans keep their solutions under a different SPW and
+    are interpolated in time on apply. Ties are broken towards the smaller
+    group, then the lower reference. A conflict is reported unless `verbose` is
+    switched off.
 
     Args:
         vis: Input visibility file (.ms).
@@ -312,14 +345,24 @@ def get_spwmap(vis, spwids=None, verbose=False):
     if not spwids:
         raise ValueError(f'get_spwmap: empty SPW selection for {vis}.')
 
-    groups = get_spw_groups(vis, spwids=spwids, verbose=verbose)
+    groups = get_spw_groups(vis, spwids=spwids, verbose=verbose,
+                            with_counts=True)
 
-    reference = {}
-    for group in groups:
+    # For every SPW, choose the reference of the group holding most of its
+    # scans -- not the lowest reference, which a single mixed scan would
+    # otherwise impose on a band observed in hundreds of its own scans.
+    best = {}
+    candidates = {}
+    for group, weight in groups.items():
         ref = min(group)
         for spwid in group:
-            # deterministic if groups happen to overlap: lowest reference wins
-            reference[spwid] = min(reference.get(spwid, ref), ref)
+            candidates.setdefault(spwid, {})
+            candidates[spwid][ref] = candidates[spwid].get(ref, 0) + weight
+            rank = (weight, -len(group), -ref)
+            if spwid not in best or rank > best[spwid][0]:
+                best[spwid] = (rank, ref)
+
+    reference = {spwid: chosen[1] for spwid, chosen in best.items()}
 
     # identity for every id up to the highest one in use, then apply the groups
     spwmap_i = list(range(max(spwids) + 1))
@@ -327,6 +370,21 @@ def get_spwmap(vis, spwids=None, verbose=False):
         spwmap_i[spwid] = ref
 
     if verbose:
+        conflicted = {spwid: refs for spwid, refs in candidates.items()
+                      if len(refs) > 1}
+        if conflicted:
+            by_choice = {}
+            for spwid, refs in sorted(conflicted.items()):
+                by_choice.setdefault(
+                    (reference[spwid], tuple(sorted(refs.items()))), []).append(spwid)
+            for (chosen, refs), affected in by_choice.items():
+                detail = ', '.join(f'SPW {ref} in {weight} scan(s)'
+                                   for ref, weight in refs)
+                print(f'     !!==> SPWs {affected} are recorded in more than one '
+                      f'SPW group: {detail}.')
+                print(f'           Using reference SPW {chosen}. Scans in the '
+                      f'other group(s) store their combined solutions under a '
+                      f'different SPW and will be interpolated in time on apply.')
         print(f'     ==> spwmap = {spwmap_i}')
 
     return [spwmap_i]
@@ -1957,7 +2015,7 @@ class Pipeline:
         pass
 
     def self_gain_cal(self, g_name, n_interaction, field='*',
-                      gain_tables=[], spwmaps=[],
+                      gain_tables=[],
                       combine='', solnorm=False, normtype='median',
                       spw='*', refantmode='strict',
                       spwmap=[], uvrange='', append=False, solmode='',  # L1R
@@ -2043,10 +2101,7 @@ class Pipeline:
                             comment='Before selfcal apply.')
 
             gain_tables.append(caltable)
-            # if spwmap != []:
-            #     spwmaps.append(spwmap[-1])
-            # else:
-            #     spwmaps.append(spwmap)
+            spwmap = self._check_spwmap_pairing(spwmap, gain_tables)
             print('     => Reporting data flagged before selfcal '
                   'apply interaction', n_interaction, '...')
             summary_bef = flagdata(vis=g_vis, field='', mode='summary')
@@ -2092,6 +2147,103 @@ class Pipeline:
         paired = [list(sm) for sm in spwmaps[:len(tables)]]
         paired += [[]] * (len(tables) - len(paired))
         return paired
+
+    @staticmethod
+    def _check_spwmap_pairing(spwmap, gain_tables):
+        """
+        Make `spwmap` safe to hand to applycal alongside `gain_tables`.
+
+        CASA accepts two forms: a flat list of SPW ids, which applies to every
+        gain table, or a list of such lists, one per gain table. In the nested
+        form the entries are matched to the tables *positionally*, and any
+        table past the end of the list simply gets no mapping -- CASA neither
+        broadcasts nor complains. A nested list that is one entry short
+        therefore applies each mapping to the wrong table and silently leaves
+        the last table unmapped, which is typically the one that needs it,
+        having been solved with combine='spw'. The only symptom is a buried
+        "could not be corrected due to missing (pre-)calibration" warning and,
+        with applymode='calflag', a jump in flagging.
+
+        An empty spwmap is left alone: it legitimately means "no mapping for
+        any table". A flat spwmap is left alone too, since it already applies
+        to every table.
+
+        Args:
+            spwmap: The spwmap about to be passed to applycal.
+            gain_tables: The gain tables it will accompany.
+
+        Returns:
+            list: `spwmap` unchanged, or resized to one entry per gain table.
+        """
+        if not spwmap:
+            return spwmap
+
+        # flat form (a bare list of SPW ids) already covers every table
+        if not any(isinstance(entry, (list, tuple, np.ndarray)) for entry in spwmap):
+            return spwmap
+
+        if len(spwmap) == len(gain_tables):
+            return spwmap
+
+        resized = [list(entry) if isinstance(entry, (list, tuple, np.ndarray)) else entry
+                   for entry in spwmap[:len(gain_tables)]]
+        resized += [[]] * (len(gain_tables) - len(resized))
+
+        if len(spwmap) < len(gain_tables):
+            print(f'     !!==> spwmap has only {len(spwmap)} entry/entries for '
+                  f'{len(gain_tables)} gain table(s). This is a bookkeeping bug: '
+                  f'the entries are matched to the FIRST tables, so a mapping '
+                  f'meant for a later table is applied to an earlier one and the '
+                  f'last table(s) get none.')
+            print(f'           Made explicit as {resized} (the same pairing CASA '
+                  f'would use silently). Check which table each mapping belongs '
+                  f'to before trusting this solution.')
+        else:
+            print(f'     !!==> spwmap has {len(spwmap)} entries for only '
+                  f'{len(gain_tables)} gain table(s); the surplus entries are '
+                  f'dropped, giving {resized}.')
+        return resized
+
+    def _inherit_phase_tables(self, preference):
+        """
+        Gain tables and spwmaps to build on, taken from the most recent
+        phase-only step that actually ran.
+
+        Which steps run is not fixed: `config.steps` is user-editable and the
+        parameter templates differ (params_very_faint, for instance, defines
+        only p0 and ap1, so the chain is p0 > ap1 with no p1 or p2). A step
+        must therefore never assume its immediate predecessor exists -- it
+        falls back along `preference` instead.
+
+        The spwmaps are re-paired against the tables on the way out, so the
+        caller always receives exactly one entry per table even if the stored
+        pair was written by an older version or a resumed run.
+
+        Args:
+            preference: Step names to inherit from, most preferred first
+                (e.g. ['p2', 'p1', 'p0']).
+
+        Returns:
+            tuple: ``(phase_tables, spwmaps)``, both fresh copies.
+
+        Raises:
+            RuntimeError: If none of the steps in `preference` has run.
+        """
+        for step in preference:
+            if step in self.gain_tables_applied:
+                tables = self.gain_tables_applied[step].copy()
+                spwmaps = self._pair_spwmaps(
+                    tables, self.spwmaps_applied.get(step, []))
+                if step != preference[0]:
+                    print(f' ++==> No {preference[0]} solutions available; '
+                          f'inheriting the gain table(s) from {step} instead: {tables}')
+                return tables, spwmaps
+
+        raise RuntimeError(
+            f'None of the phase-only steps {preference} has been run, so there '
+            f'are no gain tables to build on. Check that the relevant step is '
+            f"listed in config.steps and defined in the parameter template "
+            f"'{self.parameter_selection['p0_pos'].get('name', '?')}'.")
 
     def _get_initial_tables_and_spwmap(self, iteration, step_spwmap,
                                        keep_tables_from=None):
@@ -2868,7 +3020,9 @@ class Pipeline:
                 self.parameter_selection['p0_pos'] = self.selfcal_params
                 print(' ++++>> Template of Parameters to be used from now on:',
                       self.parameter_selection['p0_pos']['name'])
-                if self.parameter_selection['p0_pos']['p0']['combine'] == 'spw':
+                # 'spw' in combine, not == 'spw': every template that combines
+                # uses 'scan,spw', which an exact match would miss.
+                if 'spw' in self.parameter_selection['p0_pos']['p0']['combine']:
                     self.parameter_selection['p0_pos']['p0']['spwmap'] = self.get_spwmap(self.g_vis)
             else:         
                 try:
@@ -2877,10 +3031,14 @@ class Pipeline:
                     self.parameter_selection['p0_pos'] = self.selfcal_params
                     print(' ++++>> Template of Parameters to be used from now on:',
                         self.parameter_selection['p0_pos']['name'])
-                    if self.parameter_selection['p0_pos']['p0']['combine'] == 'spw':
+                    if 'spw' in self.parameter_selection['p0_pos']['p0']['combine']:
                         self.parameter_selection['p0_pos']['p0']['spwmap'] = self.get_spwmap(self.g_vis)
-                except:
-                    pass
+                except Exception as exc:
+                    # Do not fail the run, but do not hide it either: silently
+                    # leaving spwmap empty while combine includes 'spw' would
+                    # solve combined and apply with no mapping.
+                    print(f'[check_p0_parameters] Could not select parameters / '
+                          f'build the spwmap ({exc}); keeping the current p0 settings.')
 
     def _run_p0(self):
         """
@@ -3159,7 +3317,10 @@ class Pipeline:
 
             self.trial_gain_tables.append(self.gain_tables_selfcal_temp)
             self.gain_tables_applied['p0'] = self.gain_tables_selfcal_temp
-            self.spwmaps_applied['p0'] = self.spwmaps_selfcal_temp
+            # one spwmap entry per gain table, so that the steps that build on
+            # this one (p1/p2/ap1) inherit a correctly paired list.
+            self.spwmaps_applied['p0'] = self._pair_spwmaps(
+                self.gain_tables_selfcal_temp, self.spwmaps_selfcal_temp)
             # self.steps_performed.append('p0')
 
     def _run_p1(self):
@@ -3274,7 +3435,10 @@ class Pipeline:
 
             self.trial_gain_tables.append(self.gain_tables_selfcal_p1)
             self.gain_tables_applied['p1'] = self.gain_tables_selfcal_p1
-            self.spwmaps_applied['p1'] = self.spwmaps_selfcal_p1
+            # one spwmap entry per gain table, so that the steps that build on
+            # this one (p2/ap1) inherit a correctly paired list.
+            self.spwmaps_applied['p1'] = self._pair_spwmaps(
+                self.gain_tables_selfcal_p1, self.spwmaps_selfcal_p1)
             # self.steps_performed.append('p1')
 
     def _run_p2(self):
@@ -3288,8 +3452,10 @@ class Pipeline:
         self.selfcal_params = self.parameter_selection['p0_pos']
         self.p2_params = self.selfcal_params['p2']
 
-        self.spwmaps = self.spwmaps_applied['p1'].copy()
-        self.phase_tables = self.gain_tables_applied['p1'].copy()
+        # p1 is not guaranteed to have run (it may be absent from config.steps
+        # or from the parameter template), so fall back to p0 rather than
+        # raising a KeyError.
+        self.phase_tables, self.spwmaps = self._inherit_phase_tables(['p1', 'p0'])
 
         # if self.p2_params['combine'] == 'spw':
         if 'spw' in self.p2_params['combine']:
@@ -3408,8 +3574,7 @@ class Pipeline:
                                    calmode=self.p2_params['calmode'],
                                    action='apply',
                                    PLOT=PLOT,
-                                   gain_tables=self.phase_tables.copy(),
-                                   spwmaps=self.spwmaps.copy()
+                                   gain_tables=self.phase_tables.copy()
                                    )
             )
             summary = flagdata(vis=self.g_vis, field='', mode='summary')
@@ -3417,7 +3582,10 @@ class Pipeline:
 
             self.trial_gain_tables.append(self.gain_tables_selfcal_p2)
             self.gain_tables_applied['p2'] = self.gain_tables_selfcal_p2
-            self.spwmaps_applied['p2'] = self.spwmaps_selfcal_p2
+            # one spwmap entry per gain table, so that the steps that build on
+            # this one (ap1) inherit a correctly paired list.
+            self.spwmaps_applied['p2'] = self._pair_spwmaps(
+                self.gain_tables_selfcal_p2, self.spwmaps_selfcal_p2)
             # self.steps_performed.append('p2')
 
     def _run_ap1(self):
@@ -3469,23 +3637,11 @@ class Pipeline:
 
         # if self.config.params_trial_2 is not None or self.multi_config == True:
         if self.config.params_trial_2 is not None:
-            if 'p1' not in self.gain_tables_applied:
-                self.phase_tables = self.gain_tables_applied['p0'].copy()
-                self.spwmaps = self.spwmaps_applied['p0'].copy()
-            else:
-                self.phase_tables = self.gain_tables_applied['p1'].copy()
-                self.spwmaps = self.spwmaps_applied['p1'].copy()
+            # trial 2 restarts the chain at p1, so p2 is deliberately skipped
+            self.phase_tables, self.spwmaps = self._inherit_phase_tables(['p1', 'p0'])
         else:
-            if 'p2' not in self.gain_tables_applied:
-                if 'p1' not in self.gain_tables_applied:
-                    self.phase_tables = self.gain_tables_applied['p0'].copy()
-                    self.spwmaps = self.spwmaps_applied['p0'].copy()
-                else:
-                    self.phase_tables = self.gain_tables_applied['p1'].copy()
-                    self.spwmaps = self.spwmaps_applied['p1'].copy()
-            else:
-                self.phase_tables = self.gain_tables_applied['p2'].copy()
-                self.spwmaps = self.spwmaps_applied['p2'].copy()
+            self.phase_tables, self.spwmaps = self._inherit_phase_tables(
+                ['p2', 'p1', 'p0'])
 
         # ap1_params['spwmap'] = get_spwmap(g_vis)
         # ap1_params['spwmap'].append(get_spwmap(g_vis)[0])
@@ -3611,8 +3767,7 @@ class Pipeline:
                                    calmode=self.ap1_params['calmode'],
                                    action='apply',
                                    PLOT=PLOT,
-                                   gain_tables=self.phase_tables.copy(),
-                                   spwmaps=self.spwmaps.copy()
+                                   gain_tables=self.phase_tables.copy()
                                    )
             )
             summary = flagdata(vis=self.g_vis, field='', mode='summary')
@@ -3620,7 +3775,10 @@ class Pipeline:
 
             self.trial_gain_tables.append(self.gain_tables_selfcal_ap1)
             self.gain_tables_applied['ap1'] = self.gain_tables_selfcal_ap1
-            self.spwmaps_applied['ap1'] = self.spwmaps_selfcal_ap1
+            # one spwmap entry per gain table, so that the steps that build on
+            # this one (later reuse) inherit a correctly paired list.
+            self.spwmaps_applied['ap1'] = self._pair_spwmaps(
+                self.gain_tables_selfcal_ap1, self.spwmaps_selfcal_ap1)
             # self.steps_performed.append('ap1')
 
     def _run_split_trial_1(self):

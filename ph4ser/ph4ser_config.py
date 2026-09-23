@@ -8,6 +8,12 @@ visibility_info = {'path':"/mnt/scratch/lucatelli/astronomical-data/M82_v2/eM_C/
                    'savename':'_eM_C_CY2204_sc_v13'
        }
 
+# visibility_info = {'path':"/media/sagauga/void/astronomical-data/LIRGI_Sample_v2/UGC08696/eM_C/sc_v13/ph4ser_test_combine_spw/",
+#                    'vis_name':'UGC08696_C_3x_concat_wts',
+#                    'field':'UGC08696',
+#                    'savename':'_eM_C_sc_v13'
+#        }
+
 # visibility_info = {'path':"/media/sagauga/void/astronomical-data/LIRGI_Sample_v2/VV705/VLA_A_C/sc_v13/standard/",
 #                    'vis_name':'VV705_SDSSJ1518.calibrated',
 #                    'field':'VV705',
