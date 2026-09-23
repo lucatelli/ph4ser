@@ -4473,43 +4473,45 @@ class Pipeline:
 if __name__ == '__main__':
     config = Configuration()
     
-    # config.general_settings['do_average_time'] = True
-    # config.general_settings['timebin'] = '8s'
-
-    # config.general_settings['do_average_freq'] = True
-    # # config.general_settings['channel_width'] = [2]
-    # # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
-    # # the MS itself, right after the Pipeline instance is created (see below).
-
-    # # config.general_settings['new_phasecentre'] = None
-    # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
-    # # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
-    
-    # # config.cell_size = None
-    # config.cell_size = '0.008arcsec'
-    # # config.receiver = None
-    # config.imsize = int(1024*9)
-    # config.imsizey = int(1024*5)
-    
     config.general_settings['do_average_time'] = True
     config.general_settings['timebin'] = '8s'
 
     config.general_settings['do_average_freq'] = True
     # config.general_settings['channel_width'] = [2]
-    #or
-    chan_out_avg = 32
+    # or
+    chan_out_avg = 64
     # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
     # the MS itself, right after the Pipeline instance is created (see below).
 
-    config.general_settings['new_phasecentre'] = None
-    # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
+    # config.general_settings['new_phasecentre'] = None
+    config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
     # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
     
-    config.cell_size = None
-    # config.cell_size = '0.008arcsec'
+    # config.cell_size = None
+    config.cell_size = '0.008arcsec'
     # config.receiver = None
-    config.imsize = int(1024*2)
-    config.imsizey = int(1024*2)
+    config.imsize = int(1024*9)
+    config.imsizey = int(1024*5)
+    
+    # config.general_settings['do_average_time'] = True
+    # config.general_settings['timebin'] = '8s'
+
+    # config.general_settings['do_average_freq'] = True
+    # # config.general_settings['channel_width'] = [2]
+    # #or
+    # chan_out_avg = 32
+    # # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
+    # # the MS itself, right after the Pipeline instance is created (see below).
+
+    # config.general_settings['new_phasecentre'] = None
+    # # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
+    # # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
+    
+    # config.cell_size = None
+    # # config.cell_size = '0.008arcsec'
+    # # config.receiver = None
+    # config.imsize = int(1024*2)
+    # config.imsizey = int(1024*2)
     
     pipeline = Pipeline(config)
 
