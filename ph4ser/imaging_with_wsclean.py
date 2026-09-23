@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import argparse
+import sys
 import os
 import subprocess
 import shlex
@@ -9,6 +10,9 @@ import time
 import uuid
 import shutil
 from pathlib import Path
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from wsclean_container import resolve_container, DEFAULT_CONTAINER
 
 import resource
 soft, hard = resource.getrlimit(resource.RLIMIT_NPROC)
@@ -189,7 +193,12 @@ if __name__ == "__main__":
     parser.add_argument("--wsclean_install", type=str, nargs='?', default='singularity',
                         help="How wsclean was installed (singularity or native)?")
 
-    # To do: add option for wsclean singularity image path.
+    parser.add_argument("--wsclean_sif", type=str, nargs='?', default=None,
+                        help="Path to the WSClean singularity/apptainer image. "
+                             "If omitted, the image is looked up in $PH4SER_WSCLEAN_SIF, "
+                             "$PH4SER_CONTAINER_DIR, ph4ser_config, the ph4ser module "
+                             "directory and ~/.ph4ser/containers, in that order. "
+                             "Run 'python wsclean_container.py' to download it.")
 
     parser.add_argument("--update_model", type=str, nargs='?', default='False',
                         help="Update model after cleaning?")
@@ -293,7 +302,11 @@ if __name__ == "__main__":
     if running_container == 'singularity':
         mount_dir = root_dir_sys + ':/mnt'
         root_dir = '/mnt/'
-        wsclean_dir = os.path.dirname(os.path.abspath(__file__)) + '/wsclean36_cpu_portable_emerlin.sif'
+        # The image is not shipped with the repository: resolve it from the
+        # command line, the environment, the config, the module directory or
+        # the shared cache. See wsclean_container.py.
+        wsclean_dir = resolve_container(DEFAULT_CONTAINER,
+                                        explicit=args.wsclean_sif)
         print('Using WSClean from singularity image: ', wsclean_dir)
         print('WSClean version from singularity image: ')
         subprocess.run([
