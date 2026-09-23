@@ -127,10 +127,24 @@ def container_search_path(name=DEFAULT_CONTAINER):
     return candidates
 
 
-def resolve_container(name=DEFAULT_CONTAINER, explicit=None, required=True,
-                      verbose=True):
+def auto_fetch_enabled():
     """
-    Return the path to a usable WSClean container.
+    Whether a missing container may be downloaded automatically.
+
+    Controlled by ``$PH4SER_AUTO_FETCH``: set it to 0/false/no/off to require
+    that containers be installed by hand.
+
+    Returns:
+        bool: True unless auto-fetching has been switched off.
+    """
+    return os.environ.get('PH4SER_AUTO_FETCH', '1').strip().lower() \
+        not in ('0', 'false', 'no', 'off')
+
+
+def resolve_container(name=DEFAULT_CONTAINER, explicit=None, required=True,
+                      verbose=True, auto_fetch=True):
+    """
+    Return the path to a usable WSClean container, downloading it if needed.
 
     The first existing candidate wins, searched in this order:
 
@@ -141,20 +155,29 @@ def resolve_container(name=DEFAULT_CONTAINER, explicit=None, required=True,
       5. the ph4ser module directory      (the development layout)
       6. ``~/.ph4ser/containers``         (shared cache)
 
+    If none of those exist and a download URL is registered for `name`, the
+    image is fetched automatically, so that a fresh clone images without any
+    manual setup step. The download is resumable and checksum-verified; set
+    ``$PH4SER_AUTO_FETCH=0`` to turn it off and get the old "not found" error
+    with installation instructions instead.
+
     Args:
         name: Container file name to look for.
         explicit: Path given explicitly by the caller; takes precedence over
             everything else and is an error if it does not exist.
-        required: If True, raise when nothing is found; if False, return None.
+        required: If True, raise when nothing is found and nothing could be
+            downloaded; if False, return None.
         verbose: If True, report which container was selected.
+        auto_fetch: If False, never download (used by the informational
+            command-line options).
 
     Returns:
         str: Absolute path to the container, or None if `required` is False and
         nothing was found.
 
     Raises:
-        FileNotFoundError: If nothing is found and `required` is True, or if
-            `explicit` was given but does not exist.
+        FileNotFoundError: If nothing is found or downloaded and `required` is
+            True, or if `explicit` was given but does not exist.
     """
     if explicit:
         path = os.path.abspath(os.path.expanduser(explicit))
@@ -171,13 +194,37 @@ def resolve_container(name=DEFAULT_CONTAINER, explicit=None, required=True,
                 print(f' >> Using WSClean container: {path} (from {origin})')
             return path
 
+    # nothing installed: fetch it, unless the caller or the user said not to
+    url = CONTAINERS.get(name, {}).get('url')
+    blocked = None
+    if not (auto_fetch and required):
+        blocked = 'not requested by the caller'
+    elif not auto_fetch_enabled():
+        blocked = 'disabled by PH4SER_AUTO_FETCH'
+    elif not url:
+        blocked = f'no download URL is registered for "{name}"'
+
+    if blocked is None:
+        size = CONTAINERS.get(name, {}).get('size')
+        print(f'++==> WSClean container "{name}" is not installed yet; '
+              f'downloading it now'
+              + (f' ({size / 1024 ** 3:.2f} GiB).' if size else '.'))
+        print('      This happens once. Set PH4SER_AUTO_FETCH=0 to disable, or '
+              'point PH4SER_WSCLEAN_SIF at an existing image.')
+        try:
+            return fetch_container(name=name)
+        except Exception as exc:
+            print(f'     !!==> Automatic download failed: {exc}')
+            blocked = 'the automatic download failed'
+
     if not required:
         return None
 
     searched = '\n'.join(f'      - {path}   [{origin}]'
                          for path, origin in container_search_path(name))
     raise FileNotFoundError(
-        f'\nWSClean container "{name}" not found.\n'
+        f'\nWSClean container "{name}" not found, and it was not downloaded '
+        f'({blocked}).\n'
         f'   Searched:\n{searched}\n\n'
         f'   Container images are not distributed through git (they exceed the\n'
         f'   100 MB GitHub file limit). Fetch the image with:\n\n'
@@ -341,7 +388,7 @@ def main():
 
     if args.where:
         try:
-            print(resolve_container(args.name, verbose=False))
+            print(resolve_container(args.name, verbose=False, auto_fetch=False))
             return 0
         except FileNotFoundError as exc:
             print(exc, file=sys.stderr)
