@@ -1,0 +1,60 @@
+name: ph4ser10
+channels:
+  - conda-forge
+  - pkgw-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - casacore
+  # - aoflagger
+  # - boost
+  - pip
+  - pip:
+    - casatools
+    - casaplotms
+    - casadata
+    - casaviewer
+    - casaplotserver
+    - casalogger
+    - protobuf==3.20.3
+    - ipython
+    - notebook
+    - jupyter
+    # visualise_alignment's slider mode; arrives via jupyter
+    # anyway, but the dependency is real, so declare it.
+    - ipywidgets
+    - tqdm
+    - matplotlib
+    - corner
+    - sympy
+    - cmasher
+    - coloredlogs
+    - scipy
+    - numpy
+    - astropy
+    - pandas
+    - astroquery
+    - tableprint
+    # optional: enables shift_correction_mode='chi2_shift' / 'ensemble'
+    # in image_alignment.py. Everything else works without it.
+    - image_registration
+    - prettytable
+    - dynesty
+    - datashader
+    - scikit-image
+    - scikit-learn
+    - petrofit
+    - photutils
+    - sep
+    - fitsio
+    - astrodendro
+    - bdsf
+    - lmfit==1.1.0
+    - emcee
+    - corner
+    - bilby
+    - arviz
+    - h5py
+#    - "jax[cuda12_pip] >= 0.4.13"  # Ensure compatibility with CUDA 12
+#    - -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+    # - "jax[cpu]"
