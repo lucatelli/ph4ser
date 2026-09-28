@@ -287,7 +287,7 @@ if __name__ == "__main__":
                              "list of split frequencies in Hz to "
                              "-channel-division-frequencies.")
 
-    parser.add_argument("--channel_division_mode", type=str, nargs='?', default='weight',
+    parser.add_argument("--channel_division_mode", type=str, nargs='?', default='bandwidth',
                         help="For --channel_division auto: split each frequency "
                              "block into equal 'bandwidth' or equal 'weight'.")
 
