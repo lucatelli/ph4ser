@@ -6,8 +6,14 @@ channels:
 dependencies:
   - python=3.10
   - casacore
+  # Packages with compiled extensions come from conda-forge, which ships
+  # its own libjpeg/zlib/libzmq and builds against old glibc. The pip
+  # wheels need glibc >= 2.28, so on older clusters pip falls back to
+  # compiling from source and fails.
   # - aoflagger
   # - boost
+  - pillow
+  - pyzmq
   - pip
   - pip:
     - casatools
@@ -32,7 +38,7 @@ dependencies:
     - scipy
     - numpy
     - astropy
-    - pandas
+    - pandas==2.2.3
     - astroquery
     - tableprint
     # optional: enables shift_correction_mode='chi2_shift' / 'ensemble'
@@ -47,14 +53,14 @@ dependencies:
     - photutils
     - sep
     - fitsio
-    - astrodendro
-    - bdsf
+    # - astrodendro
+    # - bdsf
     - lmfit==1.1.0
     - emcee
     - corner
-    - bilby
-    - arviz
-    - h5py
+    # - bilby
+    # - arviz
+    # - h5py
 #    - "jax[cuda12_pip] >= 0.4.13"  # Ensure compatibility with CUDA 12
 #    - -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-    # - "jax[cpu]"
+    - "jax[cpu]"
