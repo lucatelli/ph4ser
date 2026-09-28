@@ -534,6 +534,9 @@ class Configuration:
         self.cell_size = cf.cell_size
         self.taper_size = cf.taper_size
         self.nc = cf.nc
+        # how the bandwidth is split into nc sub-bands (see channel_division.py).
+        # getattr so that a config file predating this setting still loads.
+        self.channel_division = getattr(cf, 'channel_division', 'auto')
         self.negative_arg = cf.negative_arg
         self.solnorm = cf.solnorm
         self.quiet = cf.quiet
@@ -1926,7 +1929,7 @@ class Pipeline:
                     nsigma_automask='7.0', nsigma_autothreshold='0.1',
                     delmodel=False, niter=600,
                     opt_args='', quiet=True, shift=None,
-                    nc=4, negative_arg='negative',
+                    nc=4, negative_arg='negative', channel_division=None,
                     with_multiscale=False,
                     scales="None", maxmscales='6',
                     PLOT=False, datacolumn='DATA', mask=None,
@@ -1944,6 +1947,9 @@ class Pipeline:
         else:
             base_name = base_name
 
+        if channel_division is None:
+            channel_division = self.config.channel_division
+
         imaging_script_path = os.path.dirname(os.path.abspath(__file__))
         # print(' >> Imaging script path:', imaging_script_path)
 
@@ -1960,6 +1966,7 @@ class Pipeline:
                   + ' --quiet ' + str(quiet) + ' --with_multiscale ' + str(with_multiscale)
                   + ' --scales ' + scales + ' --maxmscales ' + str(maxmscales)
                   + ' --nc ' + str(nc) + ' --negative_arg ' + negative_arg
+                  + ' --channel_division ' + str(channel_division)
                   + ' --shift ' + str(shift)
                   + " --r " + str(robust) + " --t " + str(uvtaper)
                   + " --update_model " + str(savemodel) + " --save_basename " + base_name)
@@ -1976,7 +1983,7 @@ class Pipeline:
                     nsigma_automask='4.0', nsigma_autothreshold='2.0',
                     datacolumn='CORRECTED', mask=None,
                     niter=10000, quiet=True,
-                    nc=4, negative_arg='negative',
+                    nc=4, negative_arg='negative', channel_division=None,
                     with_multiscale=False, scales="'0,5,20,40'", maxmscales='6',
                     uvtaper=[], PLOT=False, with_DATA=True, with_CORRECTED=True, with_MODEL=True):
 
@@ -1987,6 +1994,9 @@ class Pipeline:
             base_name = str(n_interaction) + '_update_model_image_'
         else:
             base_name = base_name
+
+        if channel_division is None:
+            channel_division = self.config.channel_division
 
         imaging_script_path = os.path.dirname(os.path.abspath(__file__))
         print(' >> Imaging script path:', imaging_script_path)
@@ -2001,6 +2011,7 @@ class Pipeline:
                   + ' --nsigma_automask ' + nsigma_automask + ' --mask ' + str(mask)
                   + ' --nsigma_autothreshold ' + nsigma_autothreshold
                   + ' --nc ' + str(nc) + ' --negative_arg ' + negative_arg
+                  + ' --channel_division ' + str(channel_division)
                   # +' --opt_args '+ opt_args
                   + ' --quiet ' + str(quiet) + ' --with_multiscale ' + str(with_multiscale)
                   + ' --scales ' + scales + ' --maxmscales ' + str(maxmscales)
@@ -4631,45 +4642,45 @@ class Pipeline:
 if __name__ == '__main__':
     config = Configuration()
     
-    config.general_settings['do_average_time'] = True
-    config.general_settings['timebin'] = '8s'
-
-    config.general_settings['do_average_freq'] = True
-    # config.general_settings['channel_width'] = [2]
-    # or
-    chan_out_avg = 64
-    # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
-    # the MS itself, right after the Pipeline instance is created (see below).
-
-    # config.general_settings['new_phasecentre'] = None
-    config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
-    # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
-    
-    # config.cell_size = None
-    config.cell_size = '0.008arcsec'
-    # config.receiver = None
-    config.imsize = int(1024*9)
-    config.imsizey = int(1024*5)
-    
     # config.general_settings['do_average_time'] = True
     # config.general_settings['timebin'] = '8s'
 
     # config.general_settings['do_average_freq'] = True
     # # config.general_settings['channel_width'] = [2]
-    # #or
-    # chan_out_avg = 32
+    # # or
+    # chan_out_avg = 64
     # # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
     # # the MS itself, right after the Pipeline instance is created (see below).
 
-    # config.general_settings['new_phasecentre'] = None
-    # # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
+    # # config.general_settings['new_phasecentre'] = None
+    # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
     # # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
     
-    # config.cell_size = None
-    # # config.cell_size = '0.008arcsec'
+    # # config.cell_size = None
+    # config.cell_size = '0.008arcsec'
     # # config.receiver = None
-    # config.imsize = int(1024*2)
-    # config.imsizey = int(1024*2)
+    # config.imsize = int(1024*9)
+    # config.imsizey = int(1024*5)
+    
+    config.general_settings['do_average_time'] = True
+    config.general_settings['timebin'] = '8s'
+
+    config.general_settings['do_average_freq'] = False
+    # config.general_settings['channel_width'] = [2]
+    #or
+    chan_out_avg = 128
+    # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
+    # the MS itself, right after the Pipeline instance is created (see below).
+
+    config.general_settings['new_phasecentre'] = None
+    # config.general_settings['new_phasecentre'] = '09:55:50.684 +69.40.43.763'
+    # config.global_parameters['custom_mask'] = "/media/sagauga/void/astronomical-data/M82_v2/eM_C/sc_v12/CY2204/standard/M82_A_K_9216x5120_0.008asec_mask_v2.fits"
+    
+    # config.cell_size = None
+    config.cell_size = '0.008arcsec'
+    # config.receiver = None
+    config.imsize = int(1024*2)
+    config.imsizey = int(1024*2)
     
     pipeline = Pipeline(config)
 

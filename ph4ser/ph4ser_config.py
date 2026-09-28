@@ -74,6 +74,12 @@ if instrument == 'eM':
               else:
                      nc = 3 #number of bandwidth split during convolution (number of sub-band WSClean images)
 nc = 8 #overwrite for testing
+# How WSClean divides the bandwidth into nc sub-bands:
+# 'auto'    -> split frequencies computed from the MS (real gaps + region where
+#              all instruments overlap), see channel_division.py. Recommended,
+#              especially for combined (e.g. e-MERLIN + VLA) visibilities.
+# 'default' -> WSClean's own division; 'gap' -> -gap-channel-division
+channel_division = 'auto'
 
 # negative_arg='no-negative'  #dont allow negative components during WSClean cleaning.
 negative_arg='negative'     #allow negative components during WSClean cleaning.
@@ -197,19 +203,17 @@ with a total integrated flux density lower than 10 mJy.
 params_very_faint = {'name': 'very_faint', #global very_faint template for e-MERLIN
                      'p0': {
                             'robust': 0.5, #testing
-                            # 'solint': '90s' if general_settings['allow_combine_spw'] else ('240s' if instrument == 'eM' else '120s'),
-                            'solint': '120s',
+                            'solint': '120s' if general_settings['allow_combine_spw'] else ('240s' if instrument == 'eM' else '120s'),
                             'sigma_mask': 12.0 if instrument == 'eM' else 12.0, #testing
                             'mask_grow_iterations': 3,
                             'combine': 'scan,spw' if general_settings['force_combine_spw'] else ('scan,spw' if general_settings['allow_combine_spw'] else 'scan'),
-                            'gaintype': 'G',
+                            'gaintype': 'T',
                             'calmode': 'p',
                             'minsnr': 0.1 if instrument == 'eM' else 0.1, #testing
                             'spwmap': [], #leavy empty here. It will be filled later if combine='spw'
                             'nsigma_automask' : '4.0',
                             'nsigma_autothreshold' : '2.0',
-                            'uvtaper' : [''],
-                            # 'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
+                            'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
                             'with_multiscale' : True,
                             'scales': 'None',
                             'maxmscales': '3',
@@ -217,11 +221,10 @@ params_very_faint = {'name': 'very_faint', #global very_faint template for e-MER
                             'compare_solints' : False},
                      'ap1': {
                             #  'robust': 1.0 if general_settings['allow_tapper'] else 1.25,
-                             'robust': 0.5,
-                            #  'solint': '90s' if general_settings['allow_combine_spw'] else ('240s' if instrument == 'eM' else '120s'),
-                             'solint': '120s',
+                             'robust': 1.0,
+                             'solint': '120s' if general_settings['allow_combine_spw'] else ('240s' if instrument == 'eM' else '120s'),
                              'sigma_mask': 12.0 if instrument == 'eM' else 10.0, #testing
-                             'mask_grow_iterations': 3,
+                             'mask_grow_iterations': 4,
                              'combine': 'scan,spw' if general_settings['force_combine_spw'] else ('scan,spw' if general_settings['allow_combine_spw'] else 'scan'),
                              'gaintype': 'T',
                              'calmode': 'ap',
@@ -229,7 +232,6 @@ params_very_faint = {'name': 'very_faint', #global very_faint template for e-MER
                              'spwmap': [], #leavy empty here. It will be filled later if combine='spw'
                              'nsigma_automask' : '4.0',
                              'nsigma_autothreshold' : '2.0',
-                            #  'uvtaper' : [''],
                              'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
                              'with_multiscale' : True,
                              'scales': 'None',
