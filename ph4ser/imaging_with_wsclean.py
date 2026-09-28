@@ -22,6 +22,29 @@ resource.setrlimit(resource.RLIMIT_NPROC, (new_soft_limit, hard))
 soft, hard = resource.getrlimit(resource.RLIMIT_NPROC)
 
 
+def resolve_ms_path(path):
+    """
+    Full path to the measurement set named by --f.
+
+    ph4ser passes --f *without* the .ms extension (it appends '.ms' itself when
+    it builds the WSClean command), while a manual run usually includes it.
+    Anything that has to open the MS directly -- the channel division, for one
+    -- needs the real directory, so accept both spellings.
+
+    Args:
+        path: The value of --f, with or without the .ms extension.
+
+    Returns:
+        str: The first candidate that exists on disk; otherwise `path` with
+        '.ms' appended, which keeps the error message informative.
+    """
+    candidates = [path] if path.endswith('.ms') else [path + '.ms', path]
+    for candidate in candidates:
+        if os.path.isdir(candidate):
+            return candidate
+    return candidates[0]
+
+
 def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
             continue_clean='False',nc=4):
     g_vis = g_name + '.ms'
@@ -264,7 +287,7 @@ if __name__ == "__main__":
                              "list of split frequencies in Hz to "
                              "-channel-division-frequencies.")
 
-    parser.add_argument("--channel_division_mode", type=str, nargs='?', default='bandwidth',
+    parser.add_argument("--channel_division_mode", type=str, nargs='?', default='weight',
                         help="For --channel_division auto: split each frequency "
                              "block into equal 'bandwidth' or equal 'weight'.")
 
@@ -311,6 +334,7 @@ if __name__ == "__main__":
     field = os.path.basename(args.f).replace('.ms', '')
     g_name = field
     root_dir_sys = os.path.dirname(args.f) + '/'
+    vis_path = resolve_ms_path(args.f)   # --f may omit the .ms extension
     robusts = args.r
     tapers = args.t
 
@@ -481,7 +505,7 @@ if __name__ == "__main__":
         if args.channel_division == 'auto':
             try:
                 division_args = channel_division.auto_division_args(
-                    args.f, nc, mode=args.channel_division_mode,
+                    vis_path, nc, mode=args.channel_division_mode,
                     spws=channel_division.parse_spws(opt_args),
                     field=channel_division.parse_field(opt_args),
                     csv_file=(root_dir_sys + base_name + '_' + g_name +
