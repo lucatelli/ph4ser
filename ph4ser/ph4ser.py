@@ -95,7 +95,7 @@ from plot_vis_python import plot_visibilities, plot_uvwave
 
 
 from matplotlib import use as mpluse
-# mpluse('Agg')
+mpluse('Agg')
 
 def reload_libs():
     """
