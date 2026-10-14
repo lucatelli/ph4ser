@@ -151,6 +151,7 @@ def imaging(g_name, field, uvtaper, robust, base_name='clean_image',
         else:
             # scratch_dir = str(Path.home() / f'wsclean_temp/{uuid.uuid4().hex}/')
             scratch_dir = str(f'./wsclean_temp/{uuid.uuid4().hex}/')
+        # scratch_dir = f'/dev/shm/wsclean_temp/{uuid.uuid4().hex}/'
         os.makedirs(scratch_dir, exist_ok=True)
         print(' >> Using scratch directory for WSClean temporary files: ', scratch_dir)
 
@@ -277,7 +278,7 @@ if __name__ == "__main__":
                         help="Number of channels division to be used in "
                              "the MFS deconvolution.")
 
-    parser.add_argument("--channel_division", type=str, nargs='?', default='auto',
+    parser.add_argument("--channel_division", type=str, nargs='?', default='default',
                         help="How the bandwidth is divided into --nc sub-bands. "
                              "'auto': split frequencies computed from the MS "
                              "(gaps + region where all instruments overlap; "
@@ -384,7 +385,7 @@ if __name__ == "__main__":
     if args.deconvolution_mode == 'good':
         if with_multiscale == True or with_multiscale == 'True':
             deconvolver = '-multiscale'
-            deconvolver_options = ' -multiscale-scale-bias 0.65 -multiscale-gain 0.05 -multiscale-convolution-padding 1.3 -padding 1.3 -clean-border 1 '
+            deconvolver_options = ' -multiscale-scale-bias 0.70 -multiscale-gain 0.05 -multiscale-convolution-padding 1.2 -padding 1.2 -clean-border 1 '
             if (args.scales is None) or (args.scales == 'None'):
                 deconvolver_options = deconvolver_options + ' -multiscale-max-scales ' + args.maxmscales + ' '
             else:
@@ -399,12 +400,12 @@ if __name__ == "__main__":
             dec_chan = int(np.nanmax([4, nc//2]))
         else:
             dec_chan = nc
-        dec_chan = nc #debug
+        # dec_chan = nc #debug
         deconvolver_args = (' '
                             # Setting some important arguments to custom values
                             '-deconvolution-threads ' + str(threads_proc) + ' -j ' + str(threads_proc) + ' '
                             '-parallel-reordering ' + str(threads_proc) + ' '
-                            '-parallel-deconvolution 1024 '
+                            '-parallel-deconvolution 2048 '
                             # '-parallel-deconvolution 1024 '
                             '-channels-out '+str(nc)+' -join-channels ' + negative_arg + ' '
                             '-no-mf-weighting ' # this must be set to generate science images 
@@ -467,7 +468,7 @@ if __name__ == "__main__":
     if args.minuv_l is not None:
         uvselection = uvselection + ' -minuv-l ' + args.minuv_l + ' '
     # general arguments
-    gain_args = ' -mgain 0.5 -gain 0.05 -nmiter 20 ' # -super-weight 9.0
+    gain_args = ' -mgain 0.5 -gain 0.05 -nmiter 30 ' # -super-weight 9.0
 
     if args.shift == 'None' or args.shift == None:
         # if args.shift != ' ':

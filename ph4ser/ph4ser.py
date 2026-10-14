@@ -95,7 +95,7 @@ from plot_vis_python import plot_visibilities, plot_uvwave
 
 
 from matplotlib import use as mpluse
-mpluse('Agg')
+# mpluse('Agg')
 
 def reload_libs():
     """
@@ -3063,22 +3063,23 @@ class Pipeline:
         ####    to only the bright/compact emission components.                 ####
         ############################################################################
 
-        # if self.config.multi_config == False and self.modified_robust is not None:
-        if self.modified_robust is not None and self.p0_params['uvtaper'] == ['']:
-            if self.p0_params['robust'] <= self.modified_robust:
-                self.p0_params['robust'] = self.modified_robust
-            else:
-                pass
+        # # if self.config.multi_config == False and self.modified_robust is not None:
+        # if self.modified_robust is not None and self.p0_params['uvtaper'] == ['']:
+        #     if self.p0_params['robust'] <= self.modified_robust:
+        #         self.p0_params['robust'] = self.modified_robust
+        #     else:
+        #         pass
         
-        # if self.config.params_trial_2 is None and self.modified_robust is not None:
-        #     self.p0_params['robust'] = self.modified_robust
+        # # if self.config.params_trial_2 is None and self.modified_robust is not None:
+        # #     self.p0_params['robust'] = self.modified_robust
 
-        # minblperant = 3
-        # combine='spw'
-        # if (self.p0_params['combine'] == 'spw' or
-        #         self.p0_params['combine'] == 'scan,spw' or
-        #         self.p0_params['combine'] == 'spw,scan'):
-        #     self.p0_params['spwmap'] = self.get_spwmap(self.g_vis)
+        # # minblperant = 3
+        # # combine='spw'
+        # # if (self.p0_params['combine'] == 'spw' or
+        # #         self.p0_params['combine'] == 'scan,spw' or
+        # #         self.p0_params['combine'] == 'spw,scan'):
+        # #     self.p0_params['spwmap'] = self.get_spwmap(self.g_vis)
+        
         if 'spw' in self.p0_params['combine']:
             self.p0_params['spwmap'] = self.get_spwmap(self.g_vis)
 
@@ -3301,7 +3302,8 @@ class Pipeline:
                                      imsize=self.config.imsize,
                                      imsizey=self.config.imsizey,
                                      cell=self.config.cell_size,
-                                     robust=0.5 if self.p0_params['uvtaper'] != [''] else 1.0, #using high robust with tapper is too aggresive
+                                    #  robust=0.5 if self.p0_params['uvtaper'] != [''] else 1.0, #using high robust with tapper is too aggresive
+                                     robust=0.5 if self.p0_params['uvtaper'] != [''] else self.p0_params['robust']+0.25, #using high robust with tapper is too aggresive
                                      base_name='selfcal_test_0',
                                      nsigma_automask=self.p0_params['nsigma_automask'],
                                      nsigma_autothreshold=self.p0_params['nsigma_autothreshold'],
@@ -3842,7 +3844,8 @@ class Pipeline:
             ROBUSTS = [-0.25, 0.25]
         else:
             # ROBUSTS = [0.5]
-            ROBUSTS = [self.ap1_params['robust'] - 0.25 if self.ap1_params['robust']>0.0 else self.ap1_params['robust']+0.25]
+            # ROBUSTS = [self.ap1_params['robust'] - 0.25 if self.ap1_params['robust']>0.0 else self.ap1_params['robust']+0.25]
+            ROBUSTS = [self.ap1_params['robust']]
             # ROBUSTS = [-1.0]
 
         # ROBUSTS = [0.5]
@@ -4662,13 +4665,13 @@ if __name__ == '__main__':
     # config.imsize = int(1024*9)
     # config.imsizey = int(1024*5)
     
-    config.general_settings['do_average_time'] = True
-    config.general_settings['timebin'] = '8s'
+    config.general_settings['do_average_time'] = False
+    config.general_settings['timebin'] = '6s'
 
     config.general_settings['do_average_freq'] = False
     # config.general_settings['channel_width'] = [2]
     #or
-    chan_out_avg = 128
+    chan_out_avg = 32
     # NOTE: channel_width (the per-SPW mstransform chanbin map) is computed from
     # the MS itself, right after the Pipeline instance is created (see below).
 
@@ -4679,8 +4682,8 @@ if __name__ == '__main__':
     # config.cell_size = None
     config.cell_size = '0.008arcsec'
     # config.receiver = None
-    config.imsize = int(1024*2)
-    config.imsizey = int(1024*2)
+    config.imsize = int(1024*3)
+    config.imsizey = int(1024*3)
     
     pipeline = Pipeline(config)
 
