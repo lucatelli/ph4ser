@@ -514,6 +514,8 @@ class Configuration:
         # Processing steps and settings
         self.steps = cf.steps
         self.refant = cf.refant
+        # self.find_refant_mode = getattr(cf, 'find_refant_mode', 'per_scan')
+        self.find_refant_mode = cf.find_refant_mode
         self.instrument = cf.instrument
 
         # Parameter sets for different scenarios
@@ -2411,10 +2413,14 @@ class Pipeline:
             self.report_flag(summary_after, 'field')
             self.report_flag(summary_after, 'observation')
 
-    def find_refant(self, msfile, field, tablename, combine='', minsnr=1.0):
+    def find_refant(self, msfile, field, tablename, combine='', minsnr=0.5,
+                    solint='inf', gaintype='G', calmode='p'):
         """
         This function comes from the e-MERLIN CASA Pipeline (Javier Mold\'on).
         https://github.com/e-merlin/eMERLIN_CASA_pipeline/blob/master/functions/eMCP_functions.py#L1501
+
+        The gaincal parameters (combine, solint, gaintype, calmode, minsnr) are
+        set by `_run_select_refant` according to `find_refant_mode`.
         """
         # Find phase solutions per scan:
         # tablename = calib_dir +
@@ -2426,12 +2432,12 @@ class Pipeline:
                 field=field,
                 refantmode='flex',
                 combine=combine,
-                solint='inf',
+                solint=solint,
                 minblperant=3,
-                gaintype='G',
+                gaintype=gaintype,
                 minsnr=minsnr,
                 # combine='spw',
-                calmode='p')
+                calmode=calmode)
         # find_casa_problems()
         # Read solutions (phases):
         tb.open(tablename + '/ANTENNA')
@@ -2819,14 +2825,44 @@ class Pipeline:
                                 with_DATA=True,
                                 with_MODEL=False, with_CORRECTED=False)
 
+    def _find_refant_gaincal_params(self):
+        """
+        gaincal parameters for find_refant, according to config.find_refant_mode:
+            'per_scan' : solint='inf', combine=''      (one solution per scan)
+            'per_obs'  : solint='inf', combine='scan'  (one solution per observation)
+            'p0'       : solint, combine, gaintype, calmode and minsnr of the
+                         p0 stage of the selected template.
+        """
+        mode = getattr(self.config, 'find_refant_mode', 'per_scan')
+        params = {'solint': 'inf', 'combine': '', 'gaintype': 'G',
+                  'calmode': 'p', 'minsnr': 0.5}
+        if mode == 'per_obs':
+            params['combine'] = 'scan'
+        elif mode == 'p0':
+            p0_params = getattr(self, 'p0_params', None)
+            if p0_params is None:
+                print(' ++==> WARNING: p0 parameters not available '
+                      '(has check_init_parameters run?). '
+                      "Falling back to find_refant_mode = 'per_scan'.")
+                mode = 'per_scan'
+            else:
+                for key in params:
+                    if key in p0_params:
+                        params[key] = p0_params[key]
+        elif mode != 'per_scan':
+            raise ValueError(f"Unknown find_refant_mode = '{mode}'. "
+                             "Use 'per_scan', 'per_obs' or 'p0'.")
+        print(f" ++==> find_refant_mode = '{mode}', gaincal parameters: {params}")
+        return params
+
     def _run_select_refant(self):
         if self.config.refant == '':
             # if 'select_refant' in steps and 'select_refant' not in steps_performed:
             print(' ++==> Estimating order of best reference antennas...')
             tablename_refant = os.path.dirname(self.g_name) + '/selfcal/find_refant.phase'
             refant = self.find_refant(msfile=self.g_vis, field='',
-                                      #   combine='spw',
-                                      tablename=tablename_refant)
+                                      tablename=tablename_refant,
+                                      **self._find_refant_gaincal_params())
             print(' ++==> Preferential reference antenna order = ', refant)
             self.refant = refant
             # print(f"The reference antenna is {refant}")
@@ -2901,7 +2937,9 @@ class Pipeline:
                          nsigma_automask='5.0', nsigma_autothreshold='2.5',
                          n_interaction='0', savemodel=False, quiet=self.config.quiet,
                          datacolumn='DATA', shift=self.config.global_parameters['FIELD_SHIFT'],
-                         with_multiscale=False, scales='None', maxmscales='3',
+                         with_multiscale=self.config.global_parameters['with_multiscale'], 
+                         scales=self.config.global_parameters['scales'], 
+                         maxmscales=self.config.global_parameters['maxmscales'],
                          nc=self.config.nc, negative_arg=self.config.negative_arg,
                          uvtaper=self.config.init_parameters['test_image']['uvtaper'],
                          niter=niter_test,
@@ -2960,7 +2998,9 @@ class Pipeline:
                                 n_interaction='0', savemodel=False, quiet=self.config.quiet,
                                 datacolumn='DATA',
                                 shift=self.config.global_parameters['FIELD_SHIFT'],
-                                with_multiscale=True, scales='None', maxmscales='3',
+                                with_multiscale=self.config.global_parameters['with_multiscale'], 
+                                scales=self.config.global_parameters['scales'], 
+                                maxmscales=self.config.global_parameters['maxmscales'],
                                 nc=self.config.nc, negative_arg=self.config.negative_arg,
                                 uvtaper=self.config.init_parameters['test_image']['uvtaper'],
                                 niter=self.config.init_parameters['test_image']['niter'],

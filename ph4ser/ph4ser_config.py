@@ -30,6 +30,10 @@ SPWS = ''
 ANTENNAS = ''
 refantmode = 'flex'          # 'strict' or 'flex' -- flex may be better in most situations. But use with caution.
 refant = ''                  # If '', will compute automatically -- this is VERY recommended, unless you know what you are doing.
+find_refant_mode = 'p0'      # gaincal setup used to rank reference antennas (when refant == ''):
+                             #   'per_scan' -> solint='inf', combine=''      (one solution per scan)
+                             #   'per_obs'  -> solint='inf', combine='scan'  (one solution per observation)
+                             #   'p0'       -> solint/combine/gaintype/calmode/minsnr from the p0 stage of the selected template
 minblperant = 2              # Minimum number of baselines per antenna. For safety, set to 3.
 solnorm = False              # True or False (globally used). If '', will use False for phases and True for
                              # amplitudes. As of now, solnorm=False is safer and better (why? coming soon....)
@@ -67,7 +71,7 @@ if instrument == 'eM':
                      nc = 4
               else:
                      nc = 3 #number of bandwidth split during convolution (number of sub-band WSClean images)
-nc = 8 #overwrite for testing
+nc = 4 #overwrite for testing
 # How WSClean divides the bandwidth into nc sub-bands:
 # 'auto'    -> split frequencies computed from the MS (real gaps + region where
 #              all instruments overlap), see channel_division.py. Recommended,
@@ -837,7 +841,7 @@ params_bright = {'name': 'bright', #test Arp220 (C-band); M87 (C; X-band); M82 (
 
 # params_very_faint = {'name': 'very_faint', #global for everything; first loop / faint sources or with diffuse/complex emission
 #                  'p0': {
-#                         'robust': 0.75 if receiver in ('Q') else 0.5,
+#                         'robust': 0.75 if receiver in ('Q') else 0.75,
 #                         # 'solint': '240s' if instrument == 'eM' else '90s',
 #                         'solint': 'inf',
 #                         'sigma_mask': 10.0 if instrument == 'eM' else (12.0 if receiver in ('Q') else 12.0),
@@ -857,10 +861,10 @@ params_bright = {'name': 'bright', #test Arp220 (C-band); M87 (C; X-band); M82 (
 #                         'compare_solints' : False},
 #                  'ap1': {
 #                         # 'robust': 0.75 if general_settings['allow_tapper'] else 1.0,
-#                         'robust': 1.5 if receiver in ('Q') else 0.5,
+#                         'robust': 1.5 if receiver in ('Q') else 1.0,
 #                         # 'solint': '240s' if instrument == 'eM' else '90s',
 #                         'solint': 'inf',
-#                         'sigma_mask': 8.0 if instrument == 'eM' else (12.0 if receiver in ('Q') else 12.0),
+#                         'sigma_mask': 10.0 if instrument == 'eM' else (12.0 if receiver in ('Q') else 12.0),
 #                         'mask_grow_iterations': 4,
 #                         # 'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
 #                         'combine': 'spw' if general_settings['allow_combine_spw'] else '',
@@ -878,15 +882,15 @@ params_bright = {'name': 'bright', #test Arp220 (C-band); M87 (C; X-band); M82 (
 #                         'compare_solints' : False},
 #                  }
 
-params_very_faint = {'name': 'very_faint', #global for everything; first loop / faint sources or with diffuse/complex emission
+params_very_faint = {'name': 'very_faint', #attempt of self-calibration of poor e-MERLIN observation of IIZw096, C-band
                  'p0': {
-                        'robust': 0.5,
-                        'solint': '120s',
+                        'robust': 0.25,
+                        'solint': '720s',
                         # 'solint': 'inf',
                         'sigma_mask': 12.0,
-                        'mask_grow_iterations': 1,
-                        'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
-                        # 'combine': 'spw' if general_settings['allow_combine_spw'] else '',
+                        'mask_grow_iterations': 2,
+                        # 'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+                        'combine': 'spw' if general_settings['allow_combine_spw'] else '',
                         'gaintype': 'T' if instrument == 'eM' else 'G',
                         'calmode': 'p',
                         'minsnr': 0.1 if instrument == 'eM' else 0.1,
@@ -895,16 +899,17 @@ params_very_faint = {'name': 'very_faint', #global for everything; first loop / 
                         'nsigma_autothreshold': '2.0',
                         'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
                         'with_multiscale': True,
-                        'scales': 'None',
+                        # 'scales': 'None',
+                        'scales': '0,2,4,8',
                         'maxmscales': '3',
                         'compare_solints' : False},
                  'ap1': {
                         # 'robust': 0.75 if general_settings['allow_tapper'] else 1.0,
-                        'robust': 0.5,
-                        'solint': '240s',
+                        'robust': 0.25,
+                        'solint': '720s',
                         # 'solint': 'inf',
                         'sigma_mask': 12.0,
-                        'mask_grow_iterations': 1,
+                        'mask_grow_iterations': 2,
                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
                         # 'combine': 'spw' if general_settings['allow_combine_spw'] else '',
                         'gaintype': 'T' if instrument == 'eM' else 'G',
@@ -916,10 +921,54 @@ params_very_faint = {'name': 'very_faint', #global for everything; first loop / 
                         'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
                         # 'uvtaper' : [''],
                         'with_multiscale': True,
-                        'scales': 'None',
+                        # 'scales': 'None',
+                        'scales': '0,2,4,8',
                         'maxmscales': '6',
                         'compare_solints' : False},
                  }
+
+# params_very_faint = {'name': 'very_faint', #global for everything; first loop / faint sources or with diffuse/complex emission
+#                  'p0': {
+#                         'robust': 0.5,
+#                         'solint': '120s',
+#                         # 'solint': 'inf',
+#                         'sigma_mask': 12.0,
+#                         'mask_grow_iterations': 1,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         # 'combine': 'spw' if general_settings['allow_combine_spw'] else '',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.1,
+#                         'spwmap': [],
+#                         'nsigma_automask': '4.0',
+#                         'nsigma_autothreshold': '2.0',
+#                         'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '3',
+#                         'compare_solints' : False},
+#                  'ap1': {
+#                         # 'robust': 0.75 if general_settings['allow_tapper'] else 1.0,
+#                         'robust': 0.5,
+#                         'solint': '240s',
+#                         # 'solint': 'inf',
+#                         'sigma_mask': 12.0,
+#                         'mask_grow_iterations': 1,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         # 'combine': 'spw' if general_settings['allow_combine_spw'] else '',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'ap',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.1,
+#                         'spwmap': [],
+#                         'nsigma_automask': '4.0',
+#                         'nsigma_autothreshold': '2.0',
+#                         'uvtaper' : [taper_size] if general_settings['allow_tapper'] else [''],
+#                         # 'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '6',
+#                         'compare_solints' : False},
+#                  }
 
 
 # params_global = {'name': 'global', #global for everything; first loop / faint sources or with diffuse/complex emission
@@ -1201,6 +1250,150 @@ params_global = {'name': 'global', #global for everything; initial loop / very b
 #                         'gaintype': 'G',
 #                         'calmode': 'ap',
 #                         'minsnr': 0.1 if instrument == 'eM' else 0.1,
+#                         'spwmap': [],
+#                         'nsigma_automask': '4.0',
+#                         'nsigma_autothreshold': '2.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '8',
+#                         'compare_solints' : False},
+#                  }
+
+
+# params_global = {'name': 'global', #global for everything; initial loop / bright and complex sources/ moderate initial artefacts / significant extended emission // NGC1068; M87, etc
+#                  'p0': {
+#                         'robust': -2.0,
+#                         'solint': '120s',
+#                         'sigma_mask': 120.0,
+#                         'mask_grow_iterations': 1,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '10.0',
+#                         'nsigma_autothreshold': '5.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '4',
+#                         'compare_solints' : False},
+#                  'p1': {
+#                         'robust': -2.0,
+#                         'solint': '60s',
+#                         'sigma_mask': 100.0,
+#                         'mask_grow_iterations': 2,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '8.0',
+#                         'nsigma_autothreshold': '4.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '4',
+#                         'compare_solints' : False},
+#                  'p2': {
+#                         'robust': -1.0,
+#                         'solint': '30s',
+#                         'sigma_mask': 60.0,
+#                         'mask_grow_iterations': 3,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '6.0',
+#                         'nsigma_autothreshold': '3.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '6',
+#                         'compare_solints' : False},
+#                  'ap1': {
+#                         'robust': -1.0,
+#                         'solint': '30s',
+#                         'sigma_mask': 30.0,
+#                         'mask_grow_iterations': 4,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'G',
+#                         'calmode': 'ap',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '4.0',
+#                         'nsigma_autothreshold': '2.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '8',
+#                         'compare_solints' : False},
+#                  }
+
+
+# params_global = {'name': 'global', #global for everything; second loop / bright and complex sources/ moderate remaining artefacts / significant extended emission // NGC1068; M87, etc
+#                  'p0': {
+#                         'robust': -1.0,
+#                         'solint': '60s',
+#                         'sigma_mask': 50.0,
+#                         'mask_grow_iterations': 1,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '10.0',
+#                         'nsigma_autothreshold': '5.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '4',
+#                         'compare_solints' : False},
+#                  'p1': {
+#                         'robust': 0.0,
+#                         'solint': '30s',
+#                         'sigma_mask': 25.0,
+#                         'mask_grow_iterations': 2,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '8.0',
+#                         'nsigma_autothreshold': '4.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '4',
+#                         'compare_solints' : False},
+#                  'p2': {
+#                         'robust': 0.5,
+#                         'solint': '6s',
+#                         'sigma_mask': 15.0,
+#                         'mask_grow_iterations': 3,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'T' if instrument == 'eM' else 'G',
+#                         'calmode': 'p',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
+#                         'spwmap': [],
+#                         'nsigma_automask': '6.0',
+#                         'nsigma_autothreshold': '3.0',
+#                         'uvtaper' : [''],
+#                         'with_multiscale': True,
+#                         'scales': 'None',
+#                         'maxmscales': '6',
+#                         'compare_solints' : False},
+#                  'ap1': {
+#                         'robust': 0.5,
+#                         'solint': '6s',
+#                         'sigma_mask': 15.0,
+#                         'mask_grow_iterations': 4,
+#                         'combine': 'scan,spw' if general_settings['allow_combine_spw'] else 'scan',
+#                         'gaintype': 'G',
+#                         'calmode': 'ap',
+#                         'minsnr': 0.1 if instrument == 'eM' else 0.5,
 #                         'spwmap': [],
 #                         'nsigma_automask': '4.0',
 #                         'nsigma_autothreshold': '2.0',
